@@ -12,6 +12,8 @@
   <img src="https://img.shields.io/badge/License-Non--Commercial-red?style=flat-square" alt="License">
 </p>
 
+<p>📦 主项目：<a href="https://github.com/xwteam/gemini2api"><b>gemini2api</b></a>（Gemini Web 反向代理）· 本插件是它的 Cookie 保活配套工具</p>
+
 <p>
   <a href="#-工作原理">工作原理</a> &bull;
   <a href="#-核心特性">核心特性</a> &bull;
