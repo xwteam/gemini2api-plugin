@@ -44,4 +44,17 @@ function maskCookie(value) {
   return value.slice(0, 6) + "…" + value.slice(-4);
 }
 
-export { readGeminiCookies, getCookie, maskCookie, GEMINI_URL, COOKIE_PSID, COOKIE_PSIDTS };
+/**
+ * 判断两个 PSID 是否属于同一账号。
+ *
+ * PSID 形如 "g.a000-xxxxx..."，其主体在 PSIDTS 轮换过程中保持稳定（被吊销才会变），
+ * 因此可用作账号身份锚点。用较长前缀比对，避免误判。
+ * 用于防串号：本地浏览器登录的账号必须和要刷新的目标账号一致才提交。
+ */
+function isSameAccount(psidA, psidB, prefixLen = 24) {
+  if (!psidA || !psidB) return false;
+  if (psidA === psidB) return true;
+  return psidA.slice(0, prefixLen) === psidB.slice(0, prefixLen);
+}
+
+export { readGeminiCookies, getCookie, maskCookie, isSameAccount, GEMINI_URL, COOKIE_PSID, COOKIE_PSIDTS };

@@ -1,6 +1,6 @@
 // background.js —— service worker：定时轮询中转站，过期时刷新本地浏览器并提交新 cookie
 import { getConfig, fetchStatus, submitCookies } from "./api.js";
-import { readGeminiCookies, GEMINI_URL } from "./cookies.js";
+import { readGeminiCookies, isSameAccount, GEMINI_URL } from "./cookies.js";
 
 const ALARM_NAME = "gemini-cookie-poll";
 const LOG_KEY = "actionLog";
@@ -43,27 +43,16 @@ async function refreshGeminiTab() {
   return { ok: true, tabId: tab.id };
 }
 
-// ---------- 处理单个过期账号 ----------
-async function handleExpiredAccount(cfg, accountId) {
+// ---------- 处理某个过期账号（已确认本地账号与之匹配后才调用）----------
+async function handleExpiredAccount(cfg, account, localPsid, localPsidts) {
+  const accountId = account.id;
   if (await inCooldown(accountId, cfg.cooldownSeconds)) {
     await log(`账号 ${accountId} 处于冷却期，跳过本轮`, "info");
     return;
   }
-  await log(`账号 ${accountId} 已过期，刷新本地 Gemini 标签页…`, "warn");
+  await log(`账号 ${accountId} 已过期且与本地账号匹配，提交新 Cookie…`, "warn");
 
-  const r = await refreshGeminiTab();
-  if (!r.ok) {
-    await log(r.error, "error");
-    return;
-  }
-
-  const { psid, psidts } = await readGeminiCookies();
-  if (!psid) {
-    await log(`刷新后仍读不到 __Secure-1PSID，可能本地也未登录 Gemini`, "error");
-    return;
-  }
-
-  const sub = await submitCookies(cfg, accountId, psid, psidts);
+  const sub = await submitCookies(cfg, accountId, localPsid, localPsidts);
   if (sub.ok) {
     await setCooldown(accountId);
     await log(`账号 ${accountId} 新 Cookie 已提交（${sub.via}），等待下轮验证`, "success");
@@ -73,6 +62,8 @@ async function handleExpiredAccount(cfg, accountId) {
 }
 
 // ---------- 一轮轮询 ----------
+// 防串号核心：一个浏览器只登录一个 Google 账号，本地 PSID 唯一确定“本浏览器负责哪个账号”。
+// 只把本地 Cookie 提交给 PSID 匹配的那个账号，绝不张冠李戴。
 async function pollOnce() {
   const cfg = await getConfig();
   if (!cfg.baseUrl) {
@@ -88,14 +79,13 @@ async function pollOnce() {
     return;
   }
 
-  // 若指定了账号 ID，只看那个；否则处理所有 expired
   let accounts = st.accounts;
   if (cfg.accountId) accounts = accounts.filter((a) => a.id === cfg.accountId);
 
   const expired = accounts.filter((a) => a.status === "expired");
   const activeCount = accounts.filter((a) => a.status === "active").length;
 
-  // 角标显示活动账号数 / 有过期时红点
+  // 角标
   if (expired.length) {
     await chrome.action.setBadgeText({ text: String(expired.length) });
     await chrome.action.setBadgeBackgroundColor({ color: "#d93025" });
@@ -106,8 +96,34 @@ async function pollOnce() {
 
   if (!expired.length) return; // 都正常，什么都不做
 
-  for (const acc of expired) {
-    await handleExpiredAccount(cfg, acc.id);
+  // 有账号过期：刷新本地标签页拿新 cookie，并确定本浏览器登录的是哪个账号
+  const r = await refreshGeminiTab();
+  if (!r.ok) { await log(r.error, "error"); return; }
+
+  const { psid: localPsid, psidts: localPsidts } = await readGeminiCookies();
+  if (!localPsid) {
+    await log("刷新后读不到本地 __Secure-1PSID，本浏览器未登录 Gemini，无法保活", "error");
+    return;
+  }
+
+  // 在过期账号里找出与本地 PSID 匹配的那个（防串号）
+  const matched = expired.filter((a) => isSameAccount(localPsid, a.psid));
+  const mismatched = expired.filter((a) => !isSameAccount(localPsid, a.psid));
+
+  if (!matched.length) {
+    await log(
+      `本地登录账号(PSID ${localPsid.slice(0, 10)}…)与 ${expired.length} 个过期账号均不匹配，` +
+      `本浏览器不负责它们，跳过（多账号请用独立浏览器分别登录）`,
+      "warn"
+    );
+    return;
+  }
+  if (mismatched.length) {
+    await log(`跳过 ${mismatched.length} 个非本浏览器账号：${mismatched.map((a) => a.id).join(", ")}`, "info");
+  }
+
+  for (const acc of matched) {
+    await handleExpiredAccount(cfg, acc, localPsid, localPsidts);
   }
 }
 
@@ -144,9 +160,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     (async () => {
       const cfg = await getConfig();
       const st = await fetchStatus(cfg);
-      const ids = st.ok ? st.accounts.map((a) => a.id) : [];
-      const target = cfg.accountId || ids[0];
-      if (target) await handleExpiredAccount({ ...cfg, cooldownSeconds: 0 }, target);
+      if (!st.ok) { await log(`强制刷新失败：${st.error}`, "error"); sendResponse({ ok: false }); return; }
+
+      const r = await refreshGeminiTab();
+      if (!r.ok) { await log(r.error, "error"); sendResponse({ ok: false }); return; }
+
+      const { psid, psidts } = await readGeminiCookies();
+      if (!psid) { await log("读不到本地 PSID，本浏览器未登录 Gemini", "error"); sendResponse({ ok: false }); return; }
+
+      // 找出与本地账号匹配的目标（优先配置的 accountId，但仍需 PSID 匹配防串号）
+      let candidates = st.accounts;
+      if (cfg.accountId) candidates = candidates.filter((a) => a.id === cfg.accountId);
+      const target = candidates.find((a) => isSameAccount(psid, a.psid));
+
+      if (!target) {
+        await log(`本地账号(PSID ${psid.slice(0, 10)}…)与中转站账号均不匹配，拒绝提交以防串号`, "error");
+        sendResponse({ ok: false });
+        return;
+      }
+      await handleExpiredAccount({ ...cfg, cooldownSeconds: 0 }, target, psid, psidts);
       sendResponse({ ok: true });
     })();
     return true;
