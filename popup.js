@@ -1,6 +1,6 @@
 // popup.js —— 状态面板：展示账号状态、本地 Cookie、动作日志，手动触发检查/刷新
 import { getConfig, fetchStatus } from "./api.js";
-import { readGeminiCookies, isSameAccount, maskCookie } from "./cookies.js";
+import { readGeminiCookies, isSameAccount, maskCookie, COOKIE_PSID, COOKIE_PSIDTS } from "./cookies.js";
 
 const $ = (id) => document.getElementById(id);
 let showFullCookie = false; // 是否显示完整 cookie 值
@@ -120,4 +120,13 @@ setInterval(() => {
 // 3) 面板重新可见时立即刷新一次
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") refreshAll();
+});
+// 4) 监听 Gemini Cookie 变化：不管是插件刷新、还是 Google 后台轮换、或你手动重登，
+//    只要那两个 cookie 一变，Cookie 显示区立刻更新，绝不显示旧值
+chrome.cookies.onChanged.addListener((info) => {
+  const n = info.cookie?.name;
+  const d = info.cookie?.domain || "";
+  if ((n === COOKIE_PSID || n === COOKIE_PSIDTS) && d.includes("google.com")) {
+    renderCookie();
+  }
 });
