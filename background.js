@@ -115,23 +115,34 @@ async function pollOnce() {
     return;
   }
 
-  // 在过期账号里找出与本地 PSID 匹配的那个（防串号）
-  const matched = expired.filter((a) => isSameAccount(localPsid, a.psid));
-  const mismatched = expired.filter((a) => !isSameAccount(localPsid, a.psid));
-
-  if (!matched.length) {
-    await log(
-      `本地登录账号(PSID ${localPsid.slice(0, 10)}…)与 ${expired.length} 个过期账号均不匹配，` +
-      `本浏览器不负责它们，跳过（多账号请用独立浏览器分别登录）`,
-      "warn"
-    );
-    return;
+  // 决定要提交给哪些过期账号：
+  // - 指定了 accountId：明确告诉插件"本浏览器负责这个账号"，直接按账号提交，
+  //   PSID 不一致只记提示不拦截（保活时 cookie 本来就变了，强制匹配会导致永远提交不上）
+  // - 未指定 accountId：用本地 PSID 自动匹配，避免多账号串号
+  let targets;
+  if (cfg.accountId) {
+    targets = expired; // 已按 accountId 过滤过，这里就是它
+    const unmatched = expired.filter((a) => !isSameAccount(localPsid, a.psid));
+    if (unmatched.length) {
+      await log(`注意：本地 PSID 与账号 ${cfg.accountId} 记录的不同（cookie 已变，属正常），仍按指定账号提交`, "info");
+    }
+  } else {
+    targets = expired.filter((a) => isSameAccount(localPsid, a.psid));
+    const mismatched = expired.filter((a) => !isSameAccount(localPsid, a.psid));
+    if (!targets.length) {
+      await log(
+        `未指定账号 ID，且本地 PSID(${localPsid.slice(0, 10)}…)与所有过期账号都不匹配，无法判断该提交给谁。` +
+        `请在设置页填写本浏览器负责的账号 ID`,
+        "warn"
+      );
+      return;
+    }
+    if (mismatched.length) {
+      await log(`跳过 ${mismatched.length} 个 PSID 不匹配的账号：${mismatched.map((a) => a.id).join(", ")}`, "info");
+    }
   }
-  if (mismatched.length) {
-    await log(`跳过 ${mismatched.length} 个非本浏览器账号：${mismatched.map((a) => a.id).join(", ")}`, "info");
-  }
 
-  for (const acc of matched) {
+  for (const acc of targets) {
     await handleExpiredAccount(cfg, acc, localPsid, localPsidts);
   }
 }
@@ -193,15 +204,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const { psid, psidts } = await readGeminiCookies();
       if (!psid) { await log("读不到本地 PSID，本浏览器未登录 Gemini", "error"); sendResponse({ ok: false }); return; }
 
-      // 找出与本地账号匹配的目标（优先配置的 accountId，但仍需 PSID 匹配防串号）
-      let candidates = st.accounts;
-      if (cfg.accountId) candidates = candidates.filter((a) => a.id === cfg.accountId);
-      const target = candidates.find((a) => isSameAccount(psid, a.psid));
-
-      if (!target) {
-        await log(`本地账号(PSID ${psid.slice(0, 10)}…)与中转站账号均不匹配，拒绝提交以防串号`, "error");
-        sendResponse({ ok: false });
-        return;
+      // 选目标账号：指定了 accountId 就直接用它（PSID 不一致只提示不拦截，
+      // 因为强制刷新的目的就是提交新 cookie 覆盖旧的）；没指定才用 PSID 自动匹配防串号
+      let target;
+      if (cfg.accountId) {
+        target = st.accounts.find((a) => a.id === cfg.accountId);
+        if (!target) {
+          await log(`中转站没有账号 ${cfg.accountId}，请检查设置`, "error");
+          sendResponse({ ok: false }); return;
+        }
+        if (!isSameAccount(psid, target.psid)) {
+          await log(`注意：本地 PSID 与账号 ${cfg.accountId} 记录的不同（cookie 已变，属正常），仍按指定账号提交`, "info");
+        }
+      } else {
+        target = st.accounts.find((a) => isSameAccount(psid, a.psid));
+        if (!target) {
+          await log(`未指定账号 ID 且本地 PSID(${psid.slice(0, 10)}…)与所有账号都不匹配，无法判断提交给谁，请在设置页填写账号 ID`, "warn");
+          sendResponse({ ok: false }); return;
+        }
       }
       await handleExpiredAccount({ ...cfg, cooldownSeconds: 0 }, target, psid, psidts);
       sendResponse({ ok: true });

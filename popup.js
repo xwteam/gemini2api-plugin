@@ -57,18 +57,29 @@ async function renderCookie() {
   if (!psid) {
     html += `<div class="ck-match ck-miss">本浏览器未登录 Gemini，请先打开并登录 gemini.google.com</div>`;
   } else {
-    // 和当前选中/匹配账号比对
+    // 和账号比对
     const cfg = await getConfig();
     if (cfg.baseUrl) {
       const st = await fetchStatus(cfg);
       if (st.ok) {
-        let list = st.accounts;
-        if (cfg.accountId) list = list.filter((a) => a.id === cfg.accountId);
-        const matched = list.find((a) => isSameAccount(psid, a.psid));
-        if (matched) {
-          html += `<div class="ck-match ck-ok">✓ 与中转站账号 ${matched.id} 匹配（本浏览器负责它）</div>`;
+        if (cfg.accountId) {
+          // 指定了账号：按账号提交，PSID 仅作信息提示，不影响能否提交
+          const acct = st.accounts.find((a) => a.id === cfg.accountId);
+          if (!acct) {
+            html += `<div class="ck-match ck-miss">⚠ 中转站没有账号 ${cfg.accountId}，请检查设置</div>`;
+          } else if (isSameAccount(psid, acct.psid)) {
+            html += `<div class="ck-match ck-ok">✓ 本地 Cookie 与账号 ${cfg.accountId} 一致，将提交给它</div>`;
+          } else {
+            html += `<div class="ck-match" style="color:#b06000">本地 Cookie 与账号 ${cfg.accountId} 当前记录不同（cookie 已更新，正常），仍会提交给该账号</div>`;
+          }
         } else {
-          html += `<div class="ck-match ck-miss">⚠ 与中转站任何账号都不匹配，提交会被拒绝（多账号请用独立浏览器）</div>`;
+          // 没指定账号：靠 PSID 自动匹配
+          const matched = st.accounts.find((a) => isSameAccount(psid, a.psid));
+          if (matched) {
+            html += `<div class="ck-match ck-ok">✓ 自动匹配到账号 ${matched.id}，将提交给它</div>`;
+          } else {
+            html += `<div class="ck-match ck-miss">⚠ 未指定账号 ID 且与所有账号 PSID 都不匹配，无法判断提交给谁，请在设置页填账号 ID</div>`;
+          }
         }
       }
     }
