@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gemini Cookie 保活 - 设置</title>
+  <style>
+    body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; background: #f5f6f8; color: #1f2329; margin: 0; padding: 32px; }
+    .card { max-width: 560px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 28px 32px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    .sub { color: #8a8f99; font-size: 13px; margin-bottom: 24px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
+    .hint { font-weight: 400; color: #8a8f99; font-size: 12px; }
+    input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 8px; font-size: 14px; }
+    input:focus { outline: none; border-color: #1a73e8; }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+    .actions { margin-top: 24px; display: flex; gap: 12px; align-items: center; }
+    button { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .primary { background: #1a73e8; color: #fff; }
+    .ghost { background: #eef1f4; color: #1f2329; }
+    #msg { font-size: 13px; margin-left: 4px; }
+    .ok { color: #188038; } .err { color: #d93025; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Gemini Cookie 保活助手</h1>
+    <div class="sub">本地浏览器定时检测中转站账号状态，过期时自动刷新并提交新 Cookie。</div>
+
+    <label>中转站地址 <span class="hint">如 http://your-server-ip:5918</span></label>
+    <input id="baseUrl" type="text" placeholder="http://你的中转站:端口" />
+
+    <label>API Key <span class="hint">中转站的 sk- 开头密钥</span></label>
+    <input id="apiKey" type="password" placeholder="sk-..." />
+
+    <label>账号 ID <span class="hint">可选，留空则处理所有过期账号（多账号时建议填，如 account-0）</span></label>
+    <input id="accountId" type="text" placeholder="account-0（可留空）" />
+
+    <div class="row">
+      <div>
+        <label>轮询间隔（秒） <span class="hint">最小 30</span></label>
+        <input id="intervalSeconds" type="number" min="30" value="60" />
+      </div>
+      <div>
+        <label>刷新冷却（秒） <span class="hint">同账号刷新后不重复</span></label>
+        <input id="cooldownSeconds" type="number" min="30" value="120" />
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="save">保存</button>
+      <button class="ghost" id="test">测试连接</button>
+      <span id="msg"></span>
+    </div>
+  </div>
+  <script src="options.js" type="module"></script>
+</body>
+</html>

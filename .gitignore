@@ -1,0 +1,11 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# 本地打包产物
+*.zip
