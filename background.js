@@ -7,15 +7,20 @@ const LOG_KEY = "actionLog";
 const COOLDOWN_KEY = "cooldownMap"; // { accountId: timestamp_ms }
 const MAX_LOG = 200;
 
-// ---------- 日志（存 storage.local，popup 读取展示）----------
+// ---------- 日志（存 storage.local，滚动保存最新 MAX_LOG 条，popup 读取展示）----------
+// 用串行队列避免并发 log() 的「读-改-写」竞态导致丢日志。
+let _logChain = Promise.resolve();
 async function log(msg, level = "info") {
   const ts = new Date().toLocaleString("zh-CN", { hour12: false });
   const entry = { ts, level, msg };
-  const { [LOG_KEY]: logs = [] } = await chrome.storage.local.get(LOG_KEY);
-  logs.unshift(entry);
-  if (logs.length > MAX_LOG) logs.length = MAX_LOG;
-  await chrome.storage.local.set({ [LOG_KEY]: logs });
   console.log(`[${level}] ${msg}`);
+  _logChain = _logChain.then(async () => {
+    const { [LOG_KEY]: logs = [] } = await chrome.storage.local.get(LOG_KEY);
+    logs.unshift(entry);                       // 新日志插到最前
+    if (logs.length > MAX_LOG) logs.length = MAX_LOG; // 超出则截掉末尾最旧的（滚动保存）
+    await chrome.storage.local.set({ [LOG_KEY]: logs });
+  }).catch((e) => console.warn("[log] 写入失败:", e));
+  return _logChain;
 }
 
 // ---------- 冷却：同一账号刷新后 N 秒内不重复处理 ----------
