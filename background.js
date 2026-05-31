@@ -5,7 +5,7 @@ import { readGeminiCookies, isSameAccount, GEMINI_URL } from "./cookies.js";
 const ALARM_NAME = "gemini-cookie-poll";
 const LOG_KEY = "actionLog";
 const COOLDOWN_KEY = "cooldownMap"; // { accountId: timestamp_ms }
-const MAX_LOG = 50;
+const MAX_LOG = 200;
 
 // ---------- 日志（存 storage.local，popup 读取展示）----------
 async function log(msg, level = "info") {
@@ -94,7 +94,11 @@ async function pollOnce() {
     await chrome.action.setBadgeBackgroundColor({ color: "#1a73e8" });
   }
 
-  if (!expired.length) return; // 都正常，什么都不做
+  if (!expired.length) {
+    const ids = accounts.map((a) => a.id).join(", ");
+    await log(`检查完成：账号正常（${activeCount} 个活动${ids ? "：" + ids : ""}），无需刷新`, "info");
+    return;
+  }
 
   // 有账号过期：刷新本地标签页拿新 cookie，并确定本浏览器登录的是哪个账号
   const r = await refreshGeminiTab();
@@ -156,7 +160,7 @@ chrome.runtime.onStartup.addListener(() => rearmAlarm());
 
 // 配置变更（间隔等）时重设定时器
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync" && changes.intervalSeconds) rearmAlarm();
+  if (area === "local" && changes.intervalSeconds) rearmAlarm();
 });
 
 // 接收 popup 的手动触发
@@ -164,6 +168,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === "poll-now") {
     pollOnce().then(() => sendResponse({ ok: true })).catch((e) => sendResponse({ ok: false, error: e.message }));
     return true; // async
+  }
+  if (msg && msg.type === "clear-log") {
+    chrome.storage.local.set({ [LOG_KEY]: [] }).then(() => {
+      log("日志已清空", "info");
+      sendResponse({ ok: true });
+    });
+    return true;
   }
   if (msg && msg.type === "refresh-now") {
     (async () => {

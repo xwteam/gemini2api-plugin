@@ -10,14 +10,23 @@
  * 读取插件配置（中转站 URL / API Key / 账号 ID / 轮询间隔）。
  */
 async function getConfig() {
-  const d = await chrome.storage.sync.get({
+  const defaults = {
     baseUrl: "",
     apiKey: "",
-    accountId: "",       // 可选，留空则对所有 expired 账号处理
+    accountId: "",       // 可选，留空则自动匹配本浏览器登录的账号
     intervalSeconds: 60,
     cooldownSeconds: 120,
-  });
-  return d;
+  };
+  // 优先 storage.local（最可靠，不依赖浏览器账号同步）；
+  // 若 local 没有但 sync 有（旧版本存的），回退读 sync 并迁移到 local。
+  const local = await chrome.storage.local.get(defaults);
+  if (local.baseUrl) return local;
+  const sync = await chrome.storage.sync.get(defaults);
+  if (sync.baseUrl) {
+    await chrome.storage.local.set(sync); // 迁移到 local
+    return sync;
+  }
+  return local;
 }
 
 function normalizeBase(baseUrl) {

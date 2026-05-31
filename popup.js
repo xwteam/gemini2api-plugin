@@ -45,6 +45,10 @@ async function refreshAll() {
 }
 
 $("openOptions").addEventListener("click", () => chrome.runtime.openOptionsPage());
+$("clearLog").addEventListener("click", async () => {
+  await chrome.runtime.sendMessage({ type: "clear-log" });
+  await renderLog();
+});
 $("pollNow").addEventListener("click", async () => {
   $("pollNow").textContent = "检查中…";
   await chrome.runtime.sendMessage({ type: "poll-now" });

@@ -22,6 +22,8 @@
     .log .line { padding: 5px 16px; border-bottom: 1px solid #f3f3f3; }
     .log .warn { color: #b06000; } .log .error { color: #d93025; } .log .success { color: #188038; }
     .empty { color: #8a8f99; font-size: 12px; text-align: center; padding: 8px; }
+    .log-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-top: 1px solid #eee; font-size: 12px; color: #5f6368; background: #fafbfc; }
+    .log-header a { color: #1a73e8; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -35,6 +37,10 @@
       <button class="primary" id="pollNow">立即检查</button>
       <button class="ghost" id="refreshNow">强制刷新提交</button>
     </div>
+  </div>
+  <div class="log-header">
+    <span>动作日志</span>
+    <a id="clearLog">清空</a>
   </div>
   <div class="log" id="log"></div>
   <script src="popup.js" type="module"></script>

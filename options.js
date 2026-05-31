@@ -1,5 +1,5 @@
 // options.js —— 设置页逻辑：加载/保存配置，动态申请中转站域权限，测试连接
-import { fetchStatus, normalizeBase } from "./api.js";
+import { fetchStatus, normalizeBase, getConfig } from "./api.js";
 
 const $ = (id) => document.getElementById(id);
 const fields = ["baseUrl", "apiKey", "accountId", "intervalSeconds", "cooldownSeconds"];
@@ -10,12 +10,9 @@ function msg(text, ok) {
   el.className = ok ? "ok" : "err";
 }
 
-// 加载已保存配置
+// 加载已保存配置（统一走 getConfig，优先 local、兼容旧 sync）
 async function load() {
-  const d = await chrome.storage.sync.get({
-    baseUrl: "", apiKey: "", accountId: "",
-    intervalSeconds: 60, cooldownSeconds: 120,
-  });
+  const d = await getConfig();
   for (const f of fields) $(f).value = d[f];
 }
 
@@ -45,11 +42,16 @@ async function save() {
   };
   if (!cfg.baseUrl) { msg("请填写中转站地址", false); return; }
 
-  const granted = await ensureHostPermission(cfg.baseUrl);
-  if (!granted) { msg("未授予该中转站的访问权限，无法请求", false); return; }
+  // 先保存配置（存 storage.local，最可靠），保证“填了就一定存进去”
+  await chrome.storage.local.set(cfg);
 
-  await chrome.storage.sync.set(cfg);
-  msg("已保存", true);
+  // 再尝试申请该中转站域的访问权限；没授予不影响保存，但会提醒
+  const granted = await ensureHostPermission(cfg.baseUrl);
+  if (granted) {
+    msg("✅ 已保存，配置生效", true);
+  } else {
+    msg("⚠ 配置已保存，但未授予该中转站访问权限，请求会失败——请重新点保存并允许权限", false);
+  }
 }
 
 async function test() {
