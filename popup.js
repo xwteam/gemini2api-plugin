@@ -4,14 +4,14 @@ import { maskCookie } from "./cookies.js";
 
 const $ = (id) => document.getElementById(id);
 
-async function renderAccounts() {
+async function renderAccounts(silent = false) {
   const box = $("accounts");
   const cfg = await getConfig();
   if (!cfg.baseUrl) {
     box.innerHTML = `<div class="empty">未配置中转站，请点右上角“设置”</div>`;
     return;
   }
-  box.innerHTML = `<div class="empty">查询中…</div>`;
+  if (!silent) box.innerHTML = `<div class="empty">查询中…</div>`;
   const st = await fetchStatus(cfg);
   if (!st.ok) {
     box.innerHTML = `<div class="empty" style="color:#d93025">查询失败：${st.error}</div>`;
@@ -60,3 +60,18 @@ $("refreshNow").addEventListener("click", async () => {
 });
 
 document.addEventListener("DOMContentLoaded", refreshAll);
+
+// 侧边栏常驻，需要持续更新（弹窗时代只在打开时刷一次就够，侧边栏不行）：
+// 1) 监听日志/状态变化，实时刷新日志区
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.actionLog) renderLog();
+});
+// 2) 定时刷新账号状态（远程数据，需主动拉）；面板隐藏时跳过省资源
+const PANEL_REFRESH_MS = 15000;
+setInterval(() => {
+  if (document.visibilityState === "visible") renderAccounts(true);
+}, PANEL_REFRESH_MS);
+// 3) 面板重新可见时立即刷新一次
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshAll();
+});
