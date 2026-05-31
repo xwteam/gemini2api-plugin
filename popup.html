@@ -24,6 +24,15 @@
     .empty { color: #8a8f99; font-size: 12px; text-align: center; padding: 8px; }
     .log-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-top: 1px solid #eee; font-size: 12px; color: #5f6368; background: #fafbfc; }
     .log-header a { color: #1a73e8; cursor: pointer; }
+    .cookie-box { border-top: 1px solid #eee; }
+    .cookie-box-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; font-size: 12px; color: #5f6368; background: #fafbfc; }
+    .cookie-box-head a { color: #1a73e8; cursor: pointer; margin-left: 10px; }
+    #cookieBody { padding: 8px 16px; font-size: 12px; }
+    .ck-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; }
+    .ck-name { color: #5f6368; flex-shrink: 0; }
+    .ck-val { font-family: monospace; word-break: break-all; text-align: right; color: #1f2329; }
+    .ck-ok { color: #188038; } .ck-miss { color: #d93025; }
+    .ck-match { font-size: 11px; padding: 4px 0; }
   </style>
 </head>
 <body>
@@ -37,6 +46,16 @@
       <button class="primary" id="pollNow">立即检查</button>
       <button class="ghost" id="refreshNow">强制刷新提交</button>
     </div>
+  </div>
+  <div class="cookie-box">
+    <div class="cookie-box-head">
+      <span>本地浏览器 Cookie</span>
+      <span>
+        <a id="toggleCookie" title="显示/隐藏完整值">👁 显示完整</a>
+        <a id="readCookie" title="重新读取">↻ 读取</a>
+      </span>
+    </div>
+    <div id="cookieBody"><div class="empty">点「读取」查看本地 Cookie</div></div>
   </div>
   <div class="log-header">
     <span>动作日志</span>

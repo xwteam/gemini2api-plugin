@@ -1,8 +1,9 @@
-// popup.js —— 状态面板：展示账号状态、动作日志，手动触发检查/刷新
+// popup.js —— 状态面板：展示账号状态、本地 Cookie、动作日志，手动触发检查/刷新
 import { getConfig, fetchStatus } from "./api.js";
-import { maskCookie } from "./cookies.js";
+import { readGeminiCookies, isSameAccount, maskCookie } from "./cookies.js";
 
 const $ = (id) => document.getElementById(id);
+let showFullCookie = false; // 是否显示完整 cookie 值
 
 async function renderAccounts(silent = false) {
   const box = $("accounts");
@@ -40,11 +41,52 @@ async function renderLog() {
   ).join("");
 }
 
+// 显示本地浏览器读到的 Gemini Cookie，方便排查“到底有没有读到”
+async function renderCookie() {
+  const box = $("cookieBody");
+  const { psid, psidts } = await readGeminiCookies();
+
+  const fmt = (v) => v ? (showFullCookie ? v : maskCookie(v)) : null;
+  const row = (name, v) => {
+    if (!v) return `<div class="ck-row"><span class="ck-name">${name}</span><span class="ck-val ck-miss">✗ 未读到</span></div>`;
+    return `<div class="ck-row"><span class="ck-name">${name} <span class="ck-ok">✓ ${v.length}字</span></span><span class="ck-val">${fmt(v)}</span></div>`;
+  };
+
+  let html = row("__Secure-1PSID", psid) + row("__Secure-1PSIDTS", psidts);
+
+  if (!psid) {
+    html += `<div class="ck-match ck-miss">本浏览器未登录 Gemini，请先打开并登录 gemini.google.com</div>`;
+  } else {
+    // 和当前选中/匹配账号比对
+    const cfg = await getConfig();
+    if (cfg.baseUrl) {
+      const st = await fetchStatus(cfg);
+      if (st.ok) {
+        let list = st.accounts;
+        if (cfg.accountId) list = list.filter((a) => a.id === cfg.accountId);
+        const matched = list.find((a) => isSameAccount(psid, a.psid));
+        if (matched) {
+          html += `<div class="ck-match ck-ok">✓ 与中转站账号 ${matched.id} 匹配（本浏览器负责它）</div>`;
+        } else {
+          html += `<div class="ck-match ck-miss">⚠ 与中转站任何账号都不匹配，提交会被拒绝（多账号请用独立浏览器）</div>`;
+        }
+      }
+    }
+  }
+  box.innerHTML = html;
+}
+
 async function refreshAll() {
-  await Promise.all([renderAccounts(), renderLog()]);
+  await Promise.all([renderAccounts(), renderLog(), renderCookie()]);
 }
 
 $("openOptions").addEventListener("click", () => chrome.runtime.openOptionsPage());
+$("readCookie").addEventListener("click", () => renderCookie());
+$("toggleCookie").addEventListener("click", () => {
+  showFullCookie = !showFullCookie;
+  $("toggleCookie").textContent = showFullCookie ? "🙈 隐藏" : "👁 显示完整";
+  renderCookie();
+});
 $("clearLog").addEventListener("click", async () => {
   await chrome.runtime.sendMessage({ type: "clear-log" });
   await renderLog();
