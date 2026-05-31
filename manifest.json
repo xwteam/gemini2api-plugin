@@ -8,7 +8,8 @@
     "tabs",
     "storage",
     "alarms",
-    "notifications"
+    "notifications",
+    "sidePanel"
   ],
   "host_permissions": [
     "*://*.google.com/*"
@@ -21,13 +22,15 @@
     "type": "module"
   },
   "action": {
-    "default_popup": "popup.html",
-    "default_title": "Gemini Cookie 保活",
+    "default_title": "Gemini Cookie 保活（点击打开侧边栏）",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
+  },
+  "side_panel": {
+    "default_path": "popup.html"
   },
   "options_page": "options.html",
   "icons": {

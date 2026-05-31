@@ -139,8 +139,17 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_NAME) pollOnce();
 });
 
+// 点击工具栏图标 → 打开右侧固定侧边栏（manifest 已去掉 default_popup，故 onClicked 可触发）
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ tabId: tab.id }).catch((e) => console.warn("[sidePanel] 打开失败:", e));
+});
+
 chrome.runtime.onInstalled.addListener(() => {
   rearmAlarm();
+  // 允许点击图标打开侧边栏（兜底，部分版本需显式设置）
+  if (chrome.sidePanel?.setPanelBehavior) {
+    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  }
   log("插件已安装/更新，定时轮询已启动", "info");
 });
 chrome.runtime.onStartup.addListener(() => rearmAlarm());
