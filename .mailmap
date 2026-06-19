@@ -1,0 +1,17 @@
+# Mailmap — normalize attribution for GitHub Contributors sidebar & git shortlog.
+# Format: Canonical Name <email> Legacy Name <email>
+# Reference: https://git-scm.com/docs/gitmailmap
+#
+# GitHub applies this at display time (no history rewrite). Co-Authored-By
+# trailers from briefly-pushed commits are routed to the project owner.
+
+# --- Cursor / Cursor Agent ---
+xwteam <xwteam@users.noreply.github.com> Cursor <cursoragent@cursor.com>
+xwteam <xwteam@users.noreply.github.com> Cursor Agent <cursoragent@cursor.com>
+xwteam <xwteam@users.noreply.github.com> <cursoragent@cursor.com>
+
+# --- Claude / Anthropic ---
+xwteam <xwteam@users.noreply.github.com> Claude <noreply@anthropic.com>
+xwteam <xwteam@users.noreply.github.com> Claude Opus 4.6 <noreply@anthropic.com>
+xwteam <xwteam@users.noreply.github.com> Claude Opus 4.7 <noreply@anthropic.com>
+xwteam <xwteam@users.noreply.github.com> <noreply@anthropic.com>
