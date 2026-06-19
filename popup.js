@@ -105,11 +105,34 @@ async function renderCookie() {
   box.innerHTML = html;
 }
 
+async function loadAccountId() {
+  const cfg = await getConfig();
+  $("accountId").value = cfg.accountId || "";
+}
+
+function bindMsg(text, ok) {
+  const el = $("bindMsg");
+  el.textContent = text;
+  el.className = "bind-msg " + (ok ? "ok" : "err");
+}
+
+async function saveAccountId() {
+  const accountId = $("accountId").value.trim();
+  await chrome.storage.local.set({ accountId });
+  bindMsg(accountId ? `已绑定账号 ${accountId}` : "已清除绑定，将使用 PSID 自动匹配", true);
+  await refreshAll();
+}
+
 async function refreshAll() {
+  await loadAccountId();
   await Promise.all([renderAccounts(), renderLog(), renderCookie()]);
 }
 
 $("openOptions").addEventListener("click", () => chrome.runtime.openOptionsPage());
+$("saveAccountId").addEventListener("click", saveAccountId);
+$("accountId").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") saveAccountId();
+});
 $("readCookie").addEventListener("click", () => renderCookie());
 $("toggleCookie").addEventListener("click", () => {
   showFullCookie = !showFullCookie;
@@ -140,6 +163,11 @@ document.addEventListener("DOMContentLoaded", refreshAll);
 // 1) 监听日志/状态变化，实时刷新日志区
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.actionLog) renderLog();
+  if (area === "local" && changes.accountId) {
+    loadAccountId();
+    renderAccounts(true);
+    renderCookie();
+  }
 });
 // 2) 定时刷新账号状态（远程数据，需主动拉）；面板隐藏时跳过省资源
 const PANEL_REFRESH_MS = 15000;

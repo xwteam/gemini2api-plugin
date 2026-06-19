@@ -2,7 +2,7 @@
 import { fetchStatus, normalizeBase, getConfig } from "./api.js";
 
 const $ = (id) => document.getElementById(id);
-const fields = ["baseUrl", "apiKey", "accountId", "intervalSeconds", "cooldownSeconds"];
+const fields = ["baseUrl", "apiKey", "intervalSeconds", "cooldownSeconds"];
 
 function msg(text, ok) {
   const el = $("msg");
@@ -36,7 +36,6 @@ async function save() {
   const cfg = {
     baseUrl: normalizeBase($("baseUrl").value.trim()),
     apiKey: $("apiKey").value.trim(),
-    accountId: $("accountId").value.trim(),
     intervalSeconds: Math.max(30, parseInt($("intervalSeconds").value, 10) || 60),
     cooldownSeconds: Math.max(30, parseInt($("cooldownSeconds").value, 10) || 120),
   };

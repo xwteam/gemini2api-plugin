@@ -25,16 +25,13 @@
 <body>
   <div class="card">
     <h1>Gemini Cookie 保活助手</h1>
-    <div class="sub">本地浏览器定时检测中转站账号状态，过期时自动刷新并提交新 Cookie。</div>
+    <div class="sub">配置中转站连接（API 地址、密钥、轮询参数）。账号绑定请在插件主面板填写。</div>
 
     <label>中转站地址 <span class="hint">如 http://your-server-ip:5918</span></label>
     <input id="baseUrl" type="text" placeholder="http://你的中转站:端口" />
 
     <label>API Key <span class="hint">中转站的 sk- 开头密钥；若配置了独立的 ADMIN_API_KEY（gemini2api ≥ v1.6.16），此处填管理密钥</span></label>
     <input id="apiKey" type="password" placeholder="sk-..." />
-
-    <label>账号 ID <span class="hint">强烈建议填写（如 account-0）；留空则靠 PSID 自动匹配，gemini2api ≥ v1.6.16 脱敏后匹配精度降低</span></label>
-    <input id="accountId" type="text" placeholder="account-0（可留空）" />
 
     <div class="row">
       <div>
