@@ -46,7 +46,7 @@ def write(locale: str, content: str):
 write("zh-CN", zh_cn_doc())
 
 for loc, fname in [("zh-TW", "zh-TW.md"), ("en", "en.md"), ("ja", "ja.md"), ("ko", "ko.md")]:
-    p = ROOT / "_doc_templates" / fname
+    p = ROOT / "doc-templates" / fname
     if p.exists():
         body = inject_lang_line(p.read_text(encoding="utf-8"), loc)
         write(loc, body)

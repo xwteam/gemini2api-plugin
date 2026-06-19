@@ -1,18 +1,10 @@
 // popup.js —— 状态面板：展示账号状态、本地 Cookie、动作日志，手动触发检查/刷新
 import { getConfig, fetchStatus } from "./api.js";
 import { readGeminiCookies, isSameAccount, maskCookie, COOKIE_PSID, COOKIE_PSIDTS } from "./cookies.js";
-import { t, localizePage, accountStatusText } from "./i18n.js";
+import { t, localizePage, accountStatusText, escapeHtml } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
 let showFullCookie = false;
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function statusLabel(status, coolingDown) {
   const text = accountStatusText(status, coolingDown);

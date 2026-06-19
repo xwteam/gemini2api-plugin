@@ -1,6 +1,22 @@
 // i18n.js —— chrome.i18n 封装，popup/options/background 共用
+
+/** HTML 转义（popup innerHTML 路径使用） */
+export function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeSubs(subs) {
+  return subs.map((s) => escapeHtml(s));
+}
+
+/** 获取本地化文案；substitution 预转义，防止 innerHTML 路径 XSS */
 export function t(key, ...subs) {
-  return chrome.i18n.getMessage(key, subs);
+  return chrome.i18n.getMessage(key, subs.length ? escapeSubs(subs) : subs);
 }
 
 /** 账号状态文案（popup 徽章 + background 日志共用） */

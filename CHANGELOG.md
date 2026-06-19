@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2.2
+
+- **修复无法加载扩展**：开发用目录 `_doc_templates` / `_gen_docs.py` 重命名为 `doc-templates` / `gen_docs.py`（Chrome 禁止 `_` 前缀除 `_locales` 外）
+- **P3 安全**：`t()` substitution 预 `escapeHtml`；统一从 `i18n.js` 导出 `escapeHtml`
+
 ## v1.2.1
 
 - **i18n 打磨**：日志账号状态翻译、HTTP 错误本地化、`maskCookie` 空值 i18n
