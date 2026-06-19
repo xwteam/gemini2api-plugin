@@ -1,40 +1,82 @@
 {
+
   "manifest_version": 3,
-  "name": "Gemini Cookie 保活助手",
-  "version": "1.1.0",
-  "description": "定时检测中转站账号状态，过期时用本地浏览器（住宅 IP）刷新并提交新 Cookie，突破 2 小时限制保持长期在线。",
+
+  "default_locale": "zh_CN",
+
+  "name": "__MSG_extName__",
+
+  "version": "1.2.0",
+
+  "description": "__MSG_extDescription__",
+
   "permissions": [
+
     "cookies",
+
     "tabs",
+
     "storage",
+
     "alarms",
+
     "sidePanel"
+
   ],
+
   "host_permissions": [
+
     "*://*.google.com/*"
+
   ],
+
   "optional_host_permissions": [
+
     "*://*/*"
+
   ],
+
   "background": {
+
     "service_worker": "background.js",
+
     "type": "module"
+
   },
+
   "action": {
-    "default_title": "Gemini Cookie 保活（点击打开侧边栏）",
+
+    "default_title": "__MSG_actionTitle__",
+
     "default_icon": {
+
       "16": "icons/icon16.png",
+
       "48": "icons/icon48.png",
+
       "128": "icons/icon128.png"
+
     }
+
   },
+
   "side_panel": {
+
     "default_path": "popup.html"
+
   },
+
   "options_page": "options.html",
+
   "icons": {
+
     "16": "icons/icon16.png",
+
     "48": "icons/icon48.png",
+
     "128": "icons/icon128.png"
+
   }
+
 }
+

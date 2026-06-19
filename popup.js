@@ -1,189 +1,384 @@
 // popup.js —— 状态面板：展示账号状态、本地 Cookie、动作日志，手动触发检查/刷新
+
 import { getConfig, fetchStatus } from "./api.js";
+
 import { readGeminiCookies, isSameAccount, maskCookie, COOKIE_PSID, COOKIE_PSIDTS } from "./cookies.js";
 
+import { t, localizePage } from "./i18n.js";
+
+
+
 const $ = (id) => document.getElementById(id);
-let showFullCookie = false; // 是否显示完整 cookie 值
+
+let showFullCookie = false;
+
+
 
 function escapeHtml(s) {
+
   return String(s)
+
     .replace(/&/g, "&amp;")
+
     .replace(/</g, "&lt;")
+
     .replace(/>/g, "&gt;")
+
     .replace(/"/g, "&quot;");
+
 }
+
+
 
 function statusLabel(status, coolingDown) {
-  if (coolingDown) return { cls: "expired", text: "冷却中" };
+
+  if (coolingDown) return { cls: "expired", text: t("statusCoolingDown") };
+
   switch (status) {
-    case "active": return { cls: "active", text: "活动" };
-    case "expired": return { cls: "expired", text: "已过期" };
-    case "disabled": return { cls: "expired", text: "已禁用" };
-    case "refreshing": return { cls: "active", text: "刷新中" };
-    default: return { cls: "expired", text: status || "未知" };
+
+    case "active": return { cls: "active", text: t("statusActive") };
+
+    case "expired": return { cls: "expired", text: t("statusExpired") };
+
+    case "disabled": return { cls: "expired", text: t("statusDisabled") };
+
+    case "refreshing": return { cls: "active", text: t("statusRefreshing") };
+
+    default: return { cls: "expired", text: status || t("statusUnknown") };
+
   }
+
 }
+
+
 
 async function renderAccounts(silent = false) {
+
   const box = $("accounts");
+
   const cfg = await getConfig();
+
   if (!cfg.baseUrl) {
-    box.innerHTML = `<div class="empty">未配置中转站，请点右上角“设置”</div>`;
+
+    box.innerHTML = `<div class="empty">${escapeHtml(t("noRelayConfigured"))}</div>`;
+
     return;
+
   }
-  if (!silent) box.innerHTML = `<div class="empty">查询中…</div>`;
+
+  if (!silent) box.innerHTML = `<div class="empty">${escapeHtml(t("querying"))}</div>`;
+
   const st = await fetchStatus(cfg);
+
   if (!st.ok) {
-    box.innerHTML = `<div class="empty" style="color:#d93025">查询失败：${st.error}</div>`;
+
+    box.innerHTML = `<div class="empty" style="color:#d93025">${escapeHtml(t("queryFailed", st.error))}</div>`;
+
     return;
+
   }
+
   let list = st.accounts;
+
   if (cfg.accountId) list = list.filter((a) => a.id === cfg.accountId);
+
   if (!list.length) {
-    box.innerHTML = `<div class="empty">中转站无账号</div>`;
+
+    box.innerHTML = `<div class="empty">${escapeHtml(t("noAccounts"))}</div>`;
+
     return;
+
   }
+
   box.innerHTML = list.map((a) => {
+
     const { cls, text: label } = statusLabel(a.status, a.cooling_down);
+
     const id = escapeHtml(a.id);
+
     const ck = a.psid ? `<div class="cookie">PSID ${escapeHtml(maskCookie(a.psid))}</div>` : "";
+
     return `<div class="acct"><div><b>${id}</b>${ck}</div><span class="badge ${cls}">${escapeHtml(label)}</span></div>`;
+
   }).join("");
+
 }
+
+
 
 async function renderLog() {
+
   const { actionLog = [] } = await chrome.storage.local.get("actionLog");
+
   const el = $("log");
-  if (!actionLog.length) { el.innerHTML = `<div class="empty">暂无动作记录</div>`; return; }
+
+  if (!actionLog.length) { el.innerHTML = `<div class="empty">${escapeHtml(t("noLogEntries"))}</div>`; return; }
+
   el.innerHTML = actionLog.map((e) =>
+
     `<div class="line ${escapeHtml(e.level)}">${escapeHtml(e.ts)} · ${escapeHtml(e.msg)}</div>`
+
   ).join("");
+
 }
 
-// 显示本地浏览器读到的 Gemini Cookie，方便排查“到底有没有读到”
+
+
 async function renderCookie() {
+
   const box = $("cookieBody");
+
   const { psid, psidts } = await readGeminiCookies();
 
+
+
   const fmt = (v) => v ? escapeHtml(showFullCookie ? v : maskCookie(v)) : null;
+
   const row = (name, v) => {
-    if (!v) return `<div class="ck-row"><span class="ck-name">${escapeHtml(name)}</span><span class="ck-val ck-miss">✗ 未读到</span></div>`;
-    return `<div class="ck-row"><span class="ck-name">${escapeHtml(name)} <span class="ck-ok">✓ ${v.length}字</span></span><span class="ck-val">${fmt(v)}</span></div>`;
+
+    if (!v) return `<div class="ck-row"><span class="ck-name">${escapeHtml(name)}</span><span class="ck-val ck-miss">${escapeHtml(t("cookieNotRead"))}</span></div>`;
+
+    return `<div class="ck-row"><span class="ck-name">${escapeHtml(name)} <span class="ck-ok">${escapeHtml(t("cookieChars", String(v.length)))}</span></span><span class="ck-val">${fmt(v)}</span></div>`;
+
   };
+
+
 
   let html = row("__Secure-1PSID", psid) + row("__Secure-1PSIDTS", psidts);
 
+
+
   if (!psid) {
-    html += `<div class="ck-match ck-miss">本浏览器未登录 Gemini，请先打开并登录 gemini.google.com</div>`;
+
+    html += `<div class="ck-match ck-miss">${escapeHtml(t("notLoggedInGemini"))}</div>`;
+
   } else {
-    // 和账号比对
+
     const cfg = await getConfig();
+
     if (cfg.baseUrl) {
+
       const st = await fetchStatus(cfg);
+
       if (st.ok) {
+
         if (cfg.accountId) {
-          // 指定了账号：按账号提交，PSID 仅作信息提示，不影响能否提交
+
           const acct = st.accounts.find((a) => a.id === cfg.accountId);
+
           if (!acct) {
-            html += `<div class="ck-match ck-miss">⚠ 中转站没有账号 ${escapeHtml(cfg.accountId)}，请检查设置</div>`;
+
+            html += `<div class="ck-match ck-miss">${escapeHtml(t("relayNoAccount", cfg.accountId))}</div>`;
+
           } else if (isSameAccount(psid, acct.psid)) {
-            html += `<div class="ck-match ck-ok">✓ 本地 Cookie 与账号 ${escapeHtml(cfg.accountId)} 一致，将提交给它</div>`;
+
+            html += `<div class="ck-match ck-ok">${escapeHtml(t("cookieMatchOk", cfg.accountId))}</div>`;
+
           } else {
-            html += `<div class="ck-match" style="color:#b06000">本地 Cookie 与账号 ${escapeHtml(cfg.accountId)} 当前记录不同（cookie 已更新，正常），仍会提交给该账号</div>`;
+
+            html += `<div class="ck-match" style="color:#b06000">${escapeHtml(t("cookieMismatchWarn", cfg.accountId))}</div>`;
+
           }
+
         } else {
+
           const matched = st.accounts.find((a) => isSameAccount(psid, a.psid));
+
           if (matched) {
-            html += `<div class="ck-match ck-ok">✓ 自动匹配到账号 ${escapeHtml(matched.id)}，将提交给它</div>`;
+
+            html += `<div class="ck-match ck-ok">${escapeHtml(t("autoMatchOk", matched.id))}</div>`;
+
           } else {
-            html += `<div class="ck-match ck-miss">⚠ 未指定账号 ID 且与所有账号 PSID 都不匹配，无法判断提交给谁，请在设置页填账号 ID</div>`;
+
+            html += `<div class="ck-match ck-miss">${escapeHtml(t("noAccountIdMismatch"))}</div>`;
+
           }
+
         }
+
       }
+
     }
+
   }
+
   box.innerHTML = html;
+
 }
+
+
 
 async function loadAccountId() {
+
   const cfg = await getConfig();
+
   $("accountId").value = cfg.accountId || "";
+
 }
+
+
 
 function bindMsg(text, ok) {
+
   const el = $("bindMsg");
+
   el.textContent = text;
+
   el.className = "bind-msg " + (ok ? "ok" : "err");
+
 }
+
+
 
 async function saveAccountId() {
+
   const accountId = $("accountId").value.trim();
+
   await chrome.storage.local.set({ accountId });
-  bindMsg(accountId ? `已绑定账号 ${accountId}` : "已清除绑定，将使用 PSID 自动匹配", true);
+
+  bindMsg(accountId ? t("boundAccount", accountId) : t("clearedBinding"), true);
+
   await refreshAll();
+
 }
+
+
 
 async function refreshAll() {
+
   await loadAccountId();
+
   await Promise.all([renderAccounts(), renderLog(), renderCookie()]);
+
 }
 
+
+
+function updateToggleCookieLabel() {
+
+  $("toggleCookie").textContent = t(showFullCookie ? "toggleCookieHide" : "toggleCookieShow");
+
+}
+
+
+
 $("openOptions").addEventListener("click", () => chrome.runtime.openOptionsPage());
+
 $("saveAccountId").addEventListener("click", saveAccountId);
+
 $("accountId").addEventListener("keydown", (e) => {
+
   if (e.key === "Enter") saveAccountId();
+
 });
+
 $("readCookie").addEventListener("click", () => renderCookie());
+
 $("toggleCookie").addEventListener("click", () => {
+
   showFullCookie = !showFullCookie;
-  $("toggleCookie").textContent = showFullCookie ? "🙈 隐藏" : "👁 显示完整";
+
+  updateToggleCookieLabel();
+
   renderCookie();
+
 });
+
 $("clearLog").addEventListener("click", async () => {
+
   await chrome.runtime.sendMessage({ type: "clear-log" });
+
   await renderLog();
+
 });
+
 $("pollNow").addEventListener("click", async () => {
-  $("pollNow").textContent = "检查中…";
+
+  $("pollNow").textContent = t("checking");
+
   await chrome.runtime.sendMessage({ type: "poll-now" });
+
   await refreshAll();
-  $("pollNow").textContent = "立即检查";
+
+  $("pollNow").textContent = t("pollNow");
+
 });
+
 $("refreshNow").addEventListener("click", async () => {
-  if (!confirm("将刷新本地 Gemini 标签页并把新 Cookie 提交到中转站，确定？")) return;
-  $("refreshNow").textContent = "处理中…";
+
+  if (!confirm(t("confirmRefresh"))) return;
+
+  $("refreshNow").textContent = t("processing");
+
   await chrome.runtime.sendMessage({ type: "refresh-now" });
+
   await refreshAll();
-  $("refreshNow").textContent = "强制刷新提交";
+
+  $("refreshNow").textContent = t("refreshNow");
+
 });
 
-document.addEventListener("DOMContentLoaded", refreshAll);
 
-// 侧边栏常驻，需要持续更新（弹窗时代只在打开时刷一次就够，侧边栏不行）：
-// 1) 监听日志/状态变化，实时刷新日志区
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  localizePage();
+
+  updateToggleCookieLabel();
+
+  refreshAll();
+
+});
+
+
+
 chrome.storage.onChanged.addListener((changes, area) => {
+
   if (area === "local" && changes.actionLog) renderLog();
+
   if (area === "local" && changes.accountId) {
+
     loadAccountId();
+
     renderAccounts(true);
+
     renderCookie();
+
   }
+
 });
-// 2) 定时刷新账号状态（远程数据，需主动拉）；面板隐藏时跳过省资源
+
+
+
 const PANEL_REFRESH_MS = 15000;
+
 setInterval(() => {
+
   if (document.visibilityState === "visible") renderAccounts(true);
+
 }, PANEL_REFRESH_MS);
-// 3) 面板重新可见时立即刷新一次
+
+
+
 document.addEventListener("visibilitychange", () => {
+
   if (document.visibilityState === "visible") refreshAll();
+
 });
-// 4) 监听 Gemini Cookie 变化：不管是插件刷新、还是 Google 后台轮换、或你手动重登，
-//    只要那两个 cookie 一变，Cookie 显示区立刻更新，绝不显示旧值
+
+
+
 chrome.cookies.onChanged.addListener((info) => {
+
   const n = info.cookie?.name;
+
   const d = info.cookie?.domain || "";
+
   if ((n === COOKIE_PSID || n === COOKIE_PSIDTS) && d.includes("google.com")) {
+
     renderCookie();
+
   }
+
 });
+
