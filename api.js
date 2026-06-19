@@ -116,8 +116,8 @@ async function checkAccount(cfg, accountId) {
       return { ok: false, error: `HTTP ${resp.status}: ${(await resp.text()).slice(0, 120)}` };
     }
     const data = await resp.json();
-    const status = data.status || data.account?.status || "";
-    return { ok: true, status, raw: data };
+    const status = data.status || (data.valid === true ? "active" : data.valid === false ? "expired" : "");
+    return { ok: true, status, valid: data.valid, raw: data };
   } catch (e) {
     return { ok: false, error: e.message };
   }
