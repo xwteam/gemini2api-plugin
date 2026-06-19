@@ -27,7 +27,7 @@
 </p>
 
 <p>
-  📖 文檔語言：<a href="../zh-CN/README.md">简体中文</a> | 繁體中文 | <a href="../en/README.md">English</a> | <a href="../ja/README.md">日本語</a> | <a href="../ko/README.md">한국어</a>
+  📖 文档语言：简体中文 | <a href="../zh-TW/README.md">繁體中文</a> | <a href="../en/README.md">English</a> | <a href="../ja/README.md">日本語</a> | <a href="../ko/README.md">한국어</a>
 </p>
 
 </div>
