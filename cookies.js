@@ -38,8 +38,8 @@ async function readGeminiCookies() {
 /**
  * 把 cookie 值打码用于展示（只留前后几位）。
  */
-function maskCookie(value) {
-  if (!value) return "（空）";
+function maskCookie(value, emptyText = "") {
+  if (!value) return emptyText;
   if (value.length <= 12) return value.slice(0, 4) + "****";
   return value.slice(0, 6) + "…" + value.slice(-4);
 }

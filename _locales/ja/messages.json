@@ -1,111 +1,512 @@
 {
-  "extName": { "message": "Gemini Cookie キープアライブ" },
-  "extDescription": { "message": "中継サーバーのアカウント状態を定期確認。期限切れ時はローカルブラウザ（住宅IP）で更新し新しい Cookie を送信、2時間制限を超えて長期オンラインを維持します。" },
-  "actionTitle": { "message": "Gemini Cookie キープアライブ（クリックでサイドパネルを開く）" },
-
-  "popupTitle": { "message": "Gemini Cookie キープアライブ" },
-  "optionsTitle": { "message": "Gemini Cookie キープアライブ - 設定" },
-  "openOptions": { "message": "中継設定" },
-  "bindBoxHead": { "message": "このブラウザ担当アカウント" },
-  "accountIdPlaceholder": { "message": "account-0" },
-  "accountIdTitle": { "message": "このブラウザプロファイルに紐づく中継アカウント ID" },
-  "saveAccountIdBtn": { "message": "紐付け" },
-  "bindHint": { "message": "複数アカウント：ブラウザプロファイルごとに 1 つのアカウント ID を設定。空欄の場合は PSID で自動照合。" },
-  "pollNow": { "message": "今すぐ確認" },
-  "refreshNow": { "message": "強制更新して送信" },
-  "cookieBoxTitle": { "message": "ローカルブラウザ Cookie" },
-  "toggleCookieShow": { "message": "👁 全文表示" },
-  "toggleCookieHide": { "message": "🙈 非表示" },
-  "readCookie": { "message": "↻ 読み取り" },
-  "toggleCookieTitle": { "message": "全文の表示/非表示" },
-  "readCookieTitle": { "message": "再読み取り" },
-  "cookieEmptyHint": { "message": "「読み取り」をクリックして Cookie を表示" },
-  "logHeader": { "message": "アクションログ" },
-  "clearLog": { "message": "クリア" },
-  "loading": { "message": "読み込み中…" },
-  "querying": { "message": "照会中…" },
-  "checking": { "message": "確認中…" },
-  "processing": { "message": "処理中…" },
-
-  "statusActive": { "message": "有効" },
-  "statusExpired": { "message": "期限切れ" },
-  "statusDisabled": { "message": "無効" },
-  "statusRefreshing": { "message": "更新中" },
-  "statusCoolingDown": { "message": "クールダウン中" },
-  "statusUnknown": { "message": "不明" },
-  "statusRecovered": { "message": "復旧（有効）" },
-  "statusLabel": { "message": "状態：$1", "placeholders": { "1": { "content": "$1" } } },
-
-  "noRelayConfigured": { "message": "中継未設定 — 右上の「設定」を開いてください" },
-  "queryFailed": { "message": "照会失敗：$1", "placeholders": { "1": { "content": "$1" } } },
-  "noAccounts": { "message": "中継にアカウントなし" },
-  "noLogEntries": { "message": "アクション記録なし" },
-  "cookieNotRead": { "message": "✗ 未検出" },
-  "cookieChars": { "message": "✓ $1 文字", "placeholders": { "1": { "content": "$1" } } },
-  "notLoggedInGemini": { "message": "Gemini 未ログイン — gemini.google.com を開いてログインしてください" },
-  "relayNoAccount": { "message": "⚠ 中継にアカウント $1 がありません — 設定を確認", "placeholders": { "1": { "content": "$1" } } },
-  "cookieMatchOk": { "message": "✓ ローカル Cookie はアカウント $1 と一致 — 送信先", "placeholders": { "1": { "content": "$1" } } },
-  "cookieMismatchWarn": { "message": "ローカル Cookie はアカウント $1 の記録と異なります（更新は正常）— そのアカウントに送信します", "placeholders": { "1": { "content": "$1" } } },
-  "autoMatchOk": { "message": "✓ アカウント $1 に自動照合 — 送信先", "placeholders": { "1": { "content": "$1" } } },
-  "noAccountIdMismatch": { "message": "⚠ アカウント ID 未指定で PSID が一致しません — サイドパネルでアカウント ID を設定してください" },
-  "boundAccount": { "message": "アカウント $1 に紐付け済み", "placeholders": { "1": { "content": "$1" } } },
-  "clearedBinding": { "message": "紐付け解除 — PSID 自動照合を使用" },
-  "confirmRefresh": { "message": "ローカルの Gemini タブを更新し新しい Cookie を中継に送信します。よろしいですか？" },
-
-  "optionsHeading": { "message": "Gemini Cookie キープアライブ" },
-  "optionsSub": { "message": "中継接続を設定（API URL、キー、ポーリング）。アカウント紐付けはメインパネルで行います。" },
-  "labelBaseUrl": { "message": "中継 URL" },
-  "hintBaseUrl": { "message": "例 http://your-server-ip:5918" },
-  "placeholderBaseUrl": { "message": "http://中継サーバー:ポート" },
-  "labelApiKey": { "message": "API Key" },
-  "hintApiKey": { "message": "中継の sk- キー。ADMIN_API_KEY 設定時（gemini2api ≥ v1.6.16）は管理キーを入力" },
-  "labelInterval": { "message": "ポーリング間隔（秒）" },
-  "hintIntervalMin": { "message": "最小 30" },
-  "labelCooldown": { "message": "更新クールダウン（秒）" },
-  "hintCooldown": { "message": "同一アカウントの重複更新を防止" },
-  "saveBtn": { "message": "保存" },
-  "testBtn": { "message": "接続テスト" },
-  "msgFillBaseUrl": { "message": "中継 URL を入力してください" },
-  "msgSavedOk": { "message": "✅ 保存しました — 設定を反映" },
-  "msgSavedNoPerm": { "message": "⚠ 保存済みですがホスト権限未付与 — リクエスト失敗します。再度保存して許可してください" },
-  "msgFillBaseUrlFirst": { "message": "先に中継 URL を入力してください" },
-  "msgNoPerm": { "message": "権限が付与されていません" },
-  "msgTesting": { "message": "テスト中…" },
-  "msgConnectOk": { "message": "接続成功 — アカウント：$1", "placeholders": { "1": { "content": "$1" } } },
-  "msgConnectFail": { "message": "接続失敗：$1", "placeholders": { "1": { "content": "$1" } } },
-  "msgNoAccounts": { "message": "（なし）" },
-
-  "errTabTimeout": { "message": "タブ読み込みタイムアウト" },
-  "errNoGeminiTab": { "message": "gemini.google.com タブが見つかりません — 開いてログインしてください" },
-  "errNoBaseUrl": { "message": "中継 URL 未設定" },
-  "errRequestFail": { "message": "リクエスト失敗: $1", "placeholders": { "1": { "content": "$1" } } },
-  "errAccountNotFound": { "message": "アカウント $1 が存在しません（HTTP 404）— 設定を確認", "placeholders": { "1": { "content": "$1" } } },
-  "errPutFail": { "message": "PUT 失敗 HTTP $1: $2", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "errPutRequestFail": { "message": "PUT リクエスト失敗: $1", "placeholders": { "1": { "content": "$1" } } },
-  "errReloadFail": { "message": "reload 失敗 HTTP $1: $2", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "errReloadRequestFail": { "message": "reload リクエスト失敗: $1", "placeholders": { "1": { "content": "$1" } } },
-  "errMissingConfig": { "message": "設定またはアカウント ID 不足" },
-
-  "logTabSlow": { "message": "タブ読み込みが遅い — Google の PSIDTS ローテーションを待機中…" },
-  "logAccountCooldown": { "message": "アカウント $1 はクールダウン中 — このラウンドをスキップ", "placeholders": { "1": { "content": "$1" } } },
-  "logAccountExpiredSubmit": { "message": "アカウント $1 期限切れ・ローカル一致 — 新 Cookie を送信中…", "placeholders": { "1": { "content": "$1" } } },
-  "logCookieSubmitted": { "message": "アカウント $1 — 新 Cookie 送信済み（$2）", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logCheckAfterSubmitActive": { "message": "アカウント $1 送信後確認：復旧（有効）", "placeholders": { "1": { "content": "$1" } } },
-  "logCheckAfterSubmitStatus": { "message": "アカウント $1 送信後確認：$2", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logCheckAfterSubmitFail": { "message": "アカウント $1 送信後確認失敗：$2 — 次回ポーリングで再確認", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logSubmitFail": { "message": "アカウント $1 送信失敗：$2", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logNoRelayUrl": { "message": "中継 URL 未設定 — 先に設定ページを開いてください" },
-  "logStatusQueryFail": { "message": "状態照会失敗：$1", "placeholders": { "1": { "content": "$1" } } },
-  "logCheckOk": { "message": "確認完了 — アカウント正常（$1 件有効$2）", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logCheckOkIds": { "message": "：$1", "placeholders": { "1": { "content": "$1" } } },
-  "logNoPsidAfterRefresh": { "message": "更新後ローカル __Secure-1PSID 未取得 — Gemini 未ログイン、キープアライブ不可" },
-  "logPsidMismatchStillSubmit": { "message": "注意：ローカル PSID はアカウント $1 の記録と異なります（Cookie 変更は正常）— 指定アカウントに送信", "placeholders": { "1": { "content": "$1" } } },
-  "logNoAccountIdNoMatch": { "message": "アカウント ID 未指定でローカル PSID($1…)が期限切れアカウントと不一致 — サイドパネルでアカウント ID を設定", "placeholders": { "1": { "content": "$1" } } },
-  "logSkipMismatch": { "message": "PSID 不一致のアカウント $1 件をスキップ：$2", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logInstalled": { "message": "拡張機能インストール/更新 — ポーリング開始" },
-  "logCleared": { "message": "ログをクリアしました" },
-  "logForceRefreshFail": { "message": "強制更新失敗：$1", "placeholders": { "1": { "content": "$1" } } },
-  "logNoLocalPsid": { "message": "ローカル PSID 未取得 — Gemini 未ログイン" },
-  "logRelayNoAccount": { "message": "中継にアカウント $1 がありません — 設定を確認", "placeholders": { "1": { "content": "$1" } } },
-  "logNoAccountIdMatch": { "message": "アカウント ID 未指定でローカル PSID($1…)がどのアカウントとも不一致 — サイドパネルで設定", "placeholders": { "1": { "content": "$1" } } }
+  "extName": {
+    "message": "Gemini Cookie キープアライブ"
+  },
+  "extDescription": {
+    "message": "中継サーバーのアカウント状態を定期確認。期限切れ時はローカルブラウザ（住宅IP）で更新し新しい Cookie を送信、2時間制限を超えて長期オンラインを維持します。"
+  },
+  "actionTitle": {
+    "message": "Gemini Cookie キープアライブ（クリックでサイドパネルを開く）"
+  },
+  "popupTitle": {
+    "message": "Gemini Cookie キープアライブ"
+  },
+  "optionsTitle": {
+    "message": "Gemini Cookie キープアライブ - 設定"
+  },
+  "openOptions": {
+    "message": "中継設定"
+  },
+  "bindBoxHead": {
+    "message": "このブラウザ担当アカウント"
+  },
+  "accountIdPlaceholder": {
+    "message": "account-0"
+  },
+  "accountIdTitle": {
+    "message": "このブラウザプロファイルに紐づく中継アカウント ID"
+  },
+  "saveAccountIdBtn": {
+    "message": "紐付け"
+  },
+  "bindHint": {
+    "message": "複数アカウント：ブラウザプロファイルごとに 1 つのアカウント ID を設定。空欄の場合は PSID で自動照合。"
+  },
+  "pollNow": {
+    "message": "今すぐ確認"
+  },
+  "refreshNow": {
+    "message": "強制更新して送信"
+  },
+  "cookieBoxTitle": {
+    "message": "ローカルブラウザ Cookie"
+  },
+  "toggleCookieShow": {
+    "message": "👁 全文表示"
+  },
+  "toggleCookieHide": {
+    "message": "🙈 非表示"
+  },
+  "readCookie": {
+    "message": "↻ 読み取り"
+  },
+  "toggleCookieTitle": {
+    "message": "全文の表示/非表示"
+  },
+  "readCookieTitle": {
+    "message": "再読み取り"
+  },
+  "cookieEmptyHint": {
+    "message": "「読み取り」をクリックして Cookie を表示"
+  },
+  "logHeader": {
+    "message": "アクションログ"
+  },
+  "clearLog": {
+    "message": "クリア"
+  },
+  "loading": {
+    "message": "読み込み中…"
+  },
+  "querying": {
+    "message": "照会中…"
+  },
+  "checking": {
+    "message": "確認中…"
+  },
+  "processing": {
+    "message": "処理中…"
+  },
+  "statusActive": {
+    "message": "有効"
+  },
+  "statusExpired": {
+    "message": "期限切れ"
+  },
+  "statusDisabled": {
+    "message": "無効"
+  },
+  "statusRefreshing": {
+    "message": "更新中"
+  },
+  "statusCoolingDown": {
+    "message": "クールダウン中"
+  },
+  "statusUnknown": {
+    "message": "不明"
+  },
+  "statusRecovered": {
+    "message": "復旧（有効）"
+  },
+  "statusLabel": {
+    "message": "状態：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "noRelayConfigured": {
+    "message": "中継未設定 — 右上の「設定」を開いてください"
+  },
+  "queryFailed": {
+    "message": "照会失敗：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "noAccounts": {
+    "message": "中継にアカウントなし"
+  },
+  "noLogEntries": {
+    "message": "アクション記録なし"
+  },
+  "cookieNotRead": {
+    "message": "✗ 未検出"
+  },
+  "cookieChars": {
+    "message": "✓ $1 文字",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "notLoggedInGemini": {
+    "message": "Gemini 未ログイン — gemini.google.com を開いてログインしてください"
+  },
+  "relayNoAccount": {
+    "message": "⚠ 中継にアカウント $1 がありません — 設定を確認",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieMatchOk": {
+    "message": "✓ ローカル Cookie はアカウント $1 と一致 — 送信先",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieMismatchWarn": {
+    "message": "ローカル Cookie はアカウント $1 の記録と異なります（更新は正常）— そのアカウントに送信します",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "autoMatchOk": {
+    "message": "✓ アカウント $1 に自動照合 — 送信先",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "noAccountIdMismatch": {
+    "message": "⚠ アカウント ID 未指定で PSID が一致しません — サイドパネルでアカウント ID を設定してください"
+  },
+  "boundAccount": {
+    "message": "アカウント $1 に紐付け済み",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "clearedBinding": {
+    "message": "紐付け解除 — PSID 自動照合を使用"
+  },
+  "confirmRefresh": {
+    "message": "ローカルの Gemini タブを更新し新しい Cookie を中継に送信します。よろしいですか？"
+  },
+  "optionsHeading": {
+    "message": "Gemini Cookie キープアライブ"
+  },
+  "optionsSub": {
+    "message": "中継接続を設定（API URL、キー、ポーリング）。アカウント紐付けはメインパネルで行います。"
+  },
+  "labelBaseUrl": {
+    "message": "中継 URL"
+  },
+  "hintBaseUrl": {
+    "message": "例 http://your-server-ip:5918"
+  },
+  "placeholderBaseUrl": {
+    "message": "http://中継サーバー:ポート"
+  },
+  "labelApiKey": {
+    "message": "API Key"
+  },
+  "hintApiKey": {
+    "message": "中継の sk- キー。ADMIN_API_KEY 設定時（gemini2api ≥ v1.6.16）は管理キーを入力"
+  },
+  "labelInterval": {
+    "message": "ポーリング間隔（秒）"
+  },
+  "hintIntervalMin": {
+    "message": "最小 30"
+  },
+  "labelCooldown": {
+    "message": "更新クールダウン（秒）"
+  },
+  "hintCooldown": {
+    "message": "同一アカウントの重複更新を防止"
+  },
+  "saveBtn": {
+    "message": "保存"
+  },
+  "testBtn": {
+    "message": "接続テスト"
+  },
+  "msgFillBaseUrl": {
+    "message": "中継 URL を入力してください"
+  },
+  "msgSavedOk": {
+    "message": "✅ 保存しました — 設定を反映"
+  },
+  "msgSavedNoPerm": {
+    "message": "⚠ 保存済みですがホスト権限未付与 — リクエスト失敗します。再度保存して許可してください"
+  },
+  "msgFillBaseUrlFirst": {
+    "message": "先に中継 URL を入力してください"
+  },
+  "msgNoPerm": {
+    "message": "権限が付与されていません"
+  },
+  "msgTesting": {
+    "message": "テスト中…"
+  },
+  "msgConnectOk": {
+    "message": "接続成功 — アカウント：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "msgConnectFail": {
+    "message": "接続失敗：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "msgNoAccounts": {
+    "message": "（なし）"
+  },
+  "errTabTimeout": {
+    "message": "タブ読み込みタイムアウト"
+  },
+  "errNoGeminiTab": {
+    "message": "gemini.google.com タブが見つかりません — 開いてログインしてください"
+  },
+  "errNoBaseUrl": {
+    "message": "中継 URL 未設定"
+  },
+  "errRequestFail": {
+    "message": "リクエスト失敗: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errAccountNotFound": {
+    "message": "アカウント $1 が存在しません（HTTP 404）— 設定を確認",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errPutFail": {
+    "message": "PUT 失敗 HTTP $1: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "errPutRequestFail": {
+    "message": "PUT リクエスト失敗: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errReloadFail": {
+    "message": "reload 失敗 HTTP $1: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "errReloadRequestFail": {
+    "message": "reload リクエスト失敗: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errMissingConfig": {
+    "message": "設定またはアカウント ID 不足"
+  },
+  "logTabSlow": {
+    "message": "タブ読み込みが遅い — Google の PSIDTS ローテーションを待機中…"
+  },
+  "logAccountCooldown": {
+    "message": "アカウント $1 はクールダウン中 — このラウンドをスキップ",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logAccountExpiredSubmit": {
+    "message": "アカウント $1 期限切れ・ローカル一致 — 新 Cookie を送信中…",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logCookieSubmitted": {
+    "message": "アカウント $1 — 新 Cookie 送信済み（$2）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logCheckAfterSubmitActive": {
+    "message": "アカウント $1 送信後確認：復旧（有効）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logCheckAfterSubmitStatus": {
+    "message": "アカウント $1 送信後確認：$2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logCheckAfterSubmitFail": {
+    "message": "アカウント $1 送信後確認失敗：$2 — 次回ポーリングで再確認",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSubmitFail": {
+    "message": "アカウント $1 送信失敗：$2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logNoRelayUrl": {
+    "message": "中継 URL 未設定 — 先に設定ページを開いてください"
+  },
+  "logStatusQueryFail": {
+    "message": "状態照会失敗：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logCheckOk": {
+    "message": "確認完了 — アカウント正常（$1 件有効$2）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logCheckOkIds": {
+    "message": "：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logNoPsidAfterRefresh": {
+    "message": "更新後ローカル __Secure-1PSID 未取得 — Gemini 未ログイン、キープアライブ不可"
+  },
+  "logPsidMismatchStillSubmit": {
+    "message": "注意：ローカル PSID はアカウント $1 の記録と異なります（Cookie 変更は正常）— 指定アカウントに送信",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logNoAccountIdNoMatch": {
+    "message": "アカウント ID 未指定でローカル PSID($1…)が期限切れアカウントと不一致 — サイドパネルでアカウント ID を設定",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkipMismatch": {
+    "message": "PSID 不一致のアカウント $1 件をスキップ：$2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logInstalled": {
+    "message": "拡張機能インストール/更新 — ポーリング開始"
+  },
+  "logCleared": {
+    "message": "ログをクリアしました"
+  },
+  "logForceRefreshFail": {
+    "message": "強制更新失敗：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logNoLocalPsid": {
+    "message": "ローカル PSID 未取得 — Gemini 未ログイン"
+  },
+  "logRelayNoAccount": {
+    "message": "中継にアカウント $1 がありません — 設定を確認",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logNoAccountIdMatch": {
+    "message": "アカウント ID 未指定でローカル PSID($1…)がどのアカウントとも不一致 — サイドパネルで設定",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieEmpty": {
+    "message": "（空）"
+  },
+  "errHttpStatus": {
+    "message": "HTTP $1: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "placeholderApiKey": {
+    "message": "sk-..."
+  }
 }

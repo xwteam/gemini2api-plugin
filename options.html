@@ -1,110 +1,55 @@
 <!DOCTYPE html>
-
 <html lang="zh-CN" data-page-title="optionsTitle">
-
 <head>
-
   <meta charset="UTF-8" />
-
   <title>Gemini Cookie</title>
-
   <style>
-
     body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; background: #f5f6f8; color: #1f2329; margin: 0; padding: 32px; }
-
     .card { max-width: 560px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 28px 32px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
-
     h1 { font-size: 18px; margin: 0 0 4px; }
-
     .sub { color: #8a8f99; font-size: 13px; margin-bottom: 24px; }
-
     label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
-
-    .hint { font-weight: 400; color: #8a8f99; font-size: 12px; }
-
+    label .hint { display: block; font-weight: 400; color: #8a8f99; font-size: 12px; margin-top: 4px; }
     input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 8px; font-size: 14px; }
-
     input:focus { outline: none; border-color: #1a73e8; }
-
     .row { display: flex; gap: 12px; }
-
     .row > div { flex: 1; }
-
-    .actions { margin-top: 24px; display: flex; gap: 12px; align-items: center; }
-
+    .actions { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
     button { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
-
     .primary { background: #1a73e8; color: #fff; }
-
     .ghost { background: #eef1f4; color: #1f2329; }
-
-    #msg { font-size: 13px; margin-left: 4px; }
-
+    #msg { font-size: 13px; flex-basis: 100%; margin-left: 0; margin-top: 4px; }
     .ok { color: #188038; } .err { color: #d93025; }
-
   </style>
-
 </head>
-
 <body>
-
   <div class="card">
-
     <h1 data-i18n="optionsHeading"></h1>
-
     <div class="sub" data-i18n="optionsSub"></div>
 
-
-
-    <label><span data-i18n="labelBaseUrl"></span> <span class="hint" data-i18n="hintBaseUrl"></span></label>
-
+    <label><span data-i18n="labelBaseUrl"></span><span class="hint" data-i18n="hintBaseUrl"></span></label>
     <input id="baseUrl" type="text" data-i18n-placeholder="placeholderBaseUrl" />
 
-
-
-    <label><span data-i18n="labelApiKey"></span> <span class="hint" data-i18n="hintApiKey"></span></label>
-
-    <input id="apiKey" type="password" placeholder="sk-..." />
-
-
+    <label><span data-i18n="labelApiKey"></span><span class="hint" data-i18n="hintApiKey"></span></label>
+    <input id="apiKey" type="password" data-i18n-placeholder="placeholderApiKey" />
 
     <div class="row">
-
       <div>
-
-        <label><span data-i18n="labelInterval"></span> <span class="hint" data-i18n="hintIntervalMin"></span></label>
-
+        <label><span data-i18n="labelInterval"></span><span class="hint" data-i18n="hintIntervalMin"></span></label>
         <input id="intervalSeconds" type="number" min="30" value="60" />
-
       </div>
-
       <div>
-
-        <label><span data-i18n="labelCooldown"></span> <span class="hint" data-i18n="hintCooldown"></span></label>
-
+        <label><span data-i18n="labelCooldown"></span><span class="hint" data-i18n="hintCooldown"></span></label>
         <input id="cooldownSeconds" type="number" min="30" value="120" />
-
       </div>
-
     </div>
-
-
 
     <div class="actions">
-
       <button class="primary" id="save" data-i18n="saveBtn"></button>
-
       <button class="ghost" id="test" data-i18n="testBtn"></button>
-
       <span id="msg"></span>
-
     </div>
-
   </div>
-
   <script src="options.js" type="module"></script>
-
 </body>
-
 </html>
-

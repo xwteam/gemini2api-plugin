@@ -1,111 +1,512 @@
 {
-  "extName": { "message": "Gemini Cookie 保活助手" },
-  "extDescription": { "message": "定时检测中转站账号状态，过期时用本地浏览器（住宅 IP）刷新并提交新 Cookie，突破 2 小时限制保持长期在线。" },
-  "actionTitle": { "message": "Gemini Cookie 保活（点击打开侧边栏）" },
-
-  "popupTitle": { "message": "Gemini Cookie 保活" },
-  "optionsTitle": { "message": "Gemini Cookie 保活 - 设置" },
-  "openOptions": { "message": "中转站设置" },
-  "bindBoxHead": { "message": "本浏览器负责的账号" },
-  "accountIdPlaceholder": { "message": "account-0" },
-  "accountIdTitle": { "message": "本浏览器实例绑定的中转站账号 ID" },
-  "saveAccountIdBtn": { "message": "绑定" },
-  "bindHint": { "message": "多账号时：每个浏览器配置文件各填一个账号 ID，勿混用。留空则靠 PSID 自动匹配。" },
-  "pollNow": { "message": "立即检查" },
-  "refreshNow": { "message": "强制刷新提交" },
-  "cookieBoxTitle": { "message": "本地浏览器 Cookie" },
-  "toggleCookieShow": { "message": "👁 显示完整" },
-  "toggleCookieHide": { "message": "🙈 隐藏" },
-  "readCookie": { "message": "↻ 读取" },
-  "toggleCookieTitle": { "message": "显示/隐藏完整值" },
-  "readCookieTitle": { "message": "重新读取" },
-  "cookieEmptyHint": { "message": "点「读取」查看本地 Cookie" },
-  "logHeader": { "message": "动作日志" },
-  "clearLog": { "message": "清空" },
-  "loading": { "message": "加载中…" },
-  "querying": { "message": "查询中…" },
-  "checking": { "message": "检查中…" },
-  "processing": { "message": "处理中…" },
-
-  "statusActive": { "message": "活动" },
-  "statusExpired": { "message": "已过期" },
-  "statusDisabled": { "message": "已禁用" },
-  "statusRefreshing": { "message": "刷新中" },
-  "statusCoolingDown": { "message": "冷却中" },
-  "statusUnknown": { "message": "未知" },
-  "statusRecovered": { "message": "已恢复活动" },
-  "statusLabel": { "message": "状态：$1", "placeholders": { "1": { "content": "$1" } } },
-
-  "noRelayConfigured": { "message": "未配置中转站，请点右上角“设置”" },
-  "queryFailed": { "message": "查询失败：$1", "placeholders": { "1": { "content": "$1" } } },
-  "noAccounts": { "message": "中转站无账号" },
-  "noLogEntries": { "message": "暂无动作记录" },
-  "cookieNotRead": { "message": "✗ 未读到" },
-  "cookieChars": { "message": "✓ $1字", "placeholders": { "1": { "content": "$1" } } },
-  "notLoggedInGemini": { "message": "本浏览器未登录 Gemini，请先打开并登录 gemini.google.com" },
-  "relayNoAccount": { "message": "⚠ 中转站没有账号 $1，请检查设置", "placeholders": { "1": { "content": "$1" } } },
-  "cookieMatchOk": { "message": "✓ 本地 Cookie 与账号 $1 一致，将提交给它", "placeholders": { "1": { "content": "$1" } } },
-  "cookieMismatchWarn": { "message": "本地 Cookie 与账号 $1 当前记录不同（cookie 已更新，正常），仍会提交给该账号", "placeholders": { "1": { "content": "$1" } } },
-  "autoMatchOk": { "message": "✓ 自动匹配到账号 $1，将提交给它", "placeholders": { "1": { "content": "$1" } } },
-  "noAccountIdMismatch": { "message": "⚠ 未指定账号 ID 且与所有账号 PSID 都不匹配，无法判断提交给谁，请在侧边栏填写账号 ID" },
-  "boundAccount": { "message": "已绑定账号 $1", "placeholders": { "1": { "content": "$1" } } },
-  "clearedBinding": { "message": "已清除绑定，将使用 PSID 自动匹配" },
-  "confirmRefresh": { "message": "将刷新本地 Gemini 标签页并把新 Cookie 提交到中转站，确定？" },
-
-  "optionsHeading": { "message": "Gemini Cookie 保活助手" },
-  "optionsSub": { "message": "配置中转站连接（API 地址、密钥、轮询参数）。账号绑定请在插件主面板填写。" },
-  "labelBaseUrl": { "message": "中转站地址" },
-  "hintBaseUrl": { "message": "如 http://your-server-ip:5918" },
-  "placeholderBaseUrl": { "message": "http://你的中转站:端口" },
-  "labelApiKey": { "message": "API Key" },
-  "hintApiKey": { "message": "中转站的 sk- 开头密钥；若配置了独立的 ADMIN_API_KEY（gemini2api ≥ v1.6.16），此处填管理密钥" },
-  "labelInterval": { "message": "轮询间隔（秒）" },
-  "hintIntervalMin": { "message": "最小 30" },
-  "labelCooldown": { "message": "刷新冷却（秒）" },
-  "hintCooldown": { "message": "同账号刷新后不重复" },
-  "saveBtn": { "message": "保存" },
-  "testBtn": { "message": "测试连接" },
-  "msgFillBaseUrl": { "message": "请填写中转站地址" },
-  "msgSavedOk": { "message": "✅ 已保存，配置生效" },
-  "msgSavedNoPerm": { "message": "⚠ 配置已保存，但未授予该中转站访问权限，请求会失败——请重新点保存并允许权限" },
-  "msgFillBaseUrlFirst": { "message": "请先填写中转站地址" },
-  "msgNoPerm": { "message": "未授予访问权限" },
-  "msgTesting": { "message": "测试中…" },
-  "msgConnectOk": { "message": "连接成功，账号：$1", "placeholders": { "1": { "content": "$1" } } },
-  "msgConnectFail": { "message": "连接失败：$1", "placeholders": { "1": { "content": "$1" } } },
-  "msgNoAccounts": { "message": "（无）" },
-
-  "errTabTimeout": { "message": "标签页加载超时" },
-  "errNoGeminiTab": { "message": "未找到已打开的 gemini.google.com 标签页，请先打开一个并登录" },
-  "errNoBaseUrl": { "message": "未配置中转站地址" },
-  "errRequestFail": { "message": "请求失败: $1", "placeholders": { "1": { "content": "$1" } } },
-  "errAccountNotFound": { "message": "账号 $1 不存在（HTTP 404），请检查设置", "placeholders": { "1": { "content": "$1" } } },
-  "errPutFail": { "message": "PUT 失败 HTTP $1: $2", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "errPutRequestFail": { "message": "PUT 请求失败: $1", "placeholders": { "1": { "content": "$1" } } },
-  "errReloadFail": { "message": "reload 失败 HTTP $1: $2", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "errReloadRequestFail": { "message": "reload 请求失败: $1", "placeholders": { "1": { "content": "$1" } } },
-  "errMissingConfig": { "message": "缺少配置或账号 ID" },
-
-  "logTabSlow": { "message": "标签页加载较慢，继续等待 Google 轮换 PSIDTS…" },
-  "logAccountCooldown": { "message": "账号 $1 处于冷却期，跳过本轮", "placeholders": { "1": { "content": "$1" } } },
-  "logAccountExpiredSubmit": { "message": "账号 $1 已过期且与本地账号匹配，提交新 Cookie…", "placeholders": { "1": { "content": "$1" } } },
-  "logCookieSubmitted": { "message": "账号 $1 新 Cookie 已提交（$2）", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logCheckAfterSubmitActive": { "message": "账号 $1 提交后检测：已恢复活动", "placeholders": { "1": { "content": "$1" } } },
-  "logCheckAfterSubmitStatus": { "message": "账号 $1 提交后检测：$2", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logCheckAfterSubmitFail": { "message": "账号 $1 提交后检测失败：$2，下轮轮询再验证", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logSubmitFail": { "message": "账号 $1 提交失败：$2", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logNoRelayUrl": { "message": "未配置中转站地址，请先到设置页填写" },
-  "logStatusQueryFail": { "message": "查询状态失败：$1", "placeholders": { "1": { "content": "$1" } } },
-  "logCheckOk": { "message": "检查完成：账号正常（$1 个活动$2）", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logCheckOkIds": { "message": "：$1", "placeholders": { "1": { "content": "$1" } } },
-  "logNoPsidAfterRefresh": { "message": "刷新后读不到本地 __Secure-1PSID，本浏览器未登录 Gemini，无法保活" },
-  "logPsidMismatchStillSubmit": { "message": "注意：本地 PSID 与账号 $1 记录的不同（cookie 已变，属正常），仍按指定账号提交", "placeholders": { "1": { "content": "$1" } } },
-  "logNoAccountIdNoMatch": { "message": "未指定账号 ID，且本地 PSID($1…)与所有过期账号都不匹配，无法判断该提交给谁。请在侧边栏填写本浏览器负责的账号 ID", "placeholders": { "1": { "content": "$1" } } },
-  "logSkipMismatch": { "message": "跳过 $1 个 PSID 不匹配的账号：$2", "placeholders": { "1": { "content": "$1" }, "2": { "content": "$2" } } },
-  "logInstalled": { "message": "插件已安装/更新，定时轮询已启动" },
-  "logCleared": { "message": "日志已清空" },
-  "logForceRefreshFail": { "message": "强制刷新失败：$1", "placeholders": { "1": { "content": "$1" } } },
-  "logNoLocalPsid": { "message": "读不到本地 PSID，本浏览器未登录 Gemini" },
-  "logRelayNoAccount": { "message": "中转站没有账号 $1，请检查设置", "placeholders": { "1": { "content": "$1" } } },
-  "logNoAccountIdMatch": { "message": "未指定账号 ID 且本地 PSID($1…)与所有账号都不匹配，无法判断提交给谁，请在侧边栏填写账号 ID", "placeholders": { "1": { "content": "$1" } } }
+  "extName": {
+    "message": "Gemini Cookie 保活助手"
+  },
+  "extDescription": {
+    "message": "定时检测中转站账号状态，过期时用本地浏览器（住宅 IP）刷新并提交新 Cookie，突破 2 小时限制保持长期在线。"
+  },
+  "actionTitle": {
+    "message": "Gemini Cookie 保活（点击打开侧边栏）"
+  },
+  "popupTitle": {
+    "message": "Gemini Cookie 保活"
+  },
+  "optionsTitle": {
+    "message": "Gemini Cookie 保活 - 设置"
+  },
+  "openOptions": {
+    "message": "中转站设置"
+  },
+  "bindBoxHead": {
+    "message": "本浏览器负责的账号"
+  },
+  "accountIdPlaceholder": {
+    "message": "account-0"
+  },
+  "accountIdTitle": {
+    "message": "本浏览器实例绑定的中转站账号 ID"
+  },
+  "saveAccountIdBtn": {
+    "message": "绑定"
+  },
+  "bindHint": {
+    "message": "多账号时：每个浏览器配置文件各填一个账号 ID，勿混用。留空则靠 PSID 自动匹配。"
+  },
+  "pollNow": {
+    "message": "立即检查"
+  },
+  "refreshNow": {
+    "message": "强制刷新提交"
+  },
+  "cookieBoxTitle": {
+    "message": "本地浏览器 Cookie"
+  },
+  "toggleCookieShow": {
+    "message": "👁 显示完整"
+  },
+  "toggleCookieHide": {
+    "message": "🙈 隐藏"
+  },
+  "readCookie": {
+    "message": "↻ 读取"
+  },
+  "toggleCookieTitle": {
+    "message": "显示/隐藏完整值"
+  },
+  "readCookieTitle": {
+    "message": "重新读取"
+  },
+  "cookieEmptyHint": {
+    "message": "点「读取」查看本地 Cookie"
+  },
+  "logHeader": {
+    "message": "动作日志"
+  },
+  "clearLog": {
+    "message": "清空"
+  },
+  "loading": {
+    "message": "加载中…"
+  },
+  "querying": {
+    "message": "查询中…"
+  },
+  "checking": {
+    "message": "检查中…"
+  },
+  "processing": {
+    "message": "处理中…"
+  },
+  "statusActive": {
+    "message": "活动"
+  },
+  "statusExpired": {
+    "message": "已过期"
+  },
+  "statusDisabled": {
+    "message": "已禁用"
+  },
+  "statusRefreshing": {
+    "message": "刷新中"
+  },
+  "statusCoolingDown": {
+    "message": "冷却中"
+  },
+  "statusUnknown": {
+    "message": "未知"
+  },
+  "statusRecovered": {
+    "message": "已恢复活动"
+  },
+  "statusLabel": {
+    "message": "状态：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "noRelayConfigured": {
+    "message": "未配置中转站，请点右上角“设置”"
+  },
+  "queryFailed": {
+    "message": "查询失败：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "noAccounts": {
+    "message": "中转站无账号"
+  },
+  "noLogEntries": {
+    "message": "暂无动作记录"
+  },
+  "cookieNotRead": {
+    "message": "✗ 未读到"
+  },
+  "cookieChars": {
+    "message": "✓ $1字",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "notLoggedInGemini": {
+    "message": "本浏览器未登录 Gemini，请先打开并登录 gemini.google.com"
+  },
+  "relayNoAccount": {
+    "message": "⚠ 中转站没有账号 $1，请检查设置",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieMatchOk": {
+    "message": "✓ 本地 Cookie 与账号 $1 一致，将提交给它",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieMismatchWarn": {
+    "message": "本地 Cookie 与账号 $1 当前记录不同（cookie 已更新，正常），仍会提交给该账号",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "autoMatchOk": {
+    "message": "✓ 自动匹配到账号 $1，将提交给它",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "noAccountIdMismatch": {
+    "message": "⚠ 未指定账号 ID 且与所有账号 PSID 都不匹配，无法判断提交给谁，请在侧边栏填写账号 ID"
+  },
+  "boundAccount": {
+    "message": "已绑定账号 $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "clearedBinding": {
+    "message": "已清除绑定，将使用 PSID 自动匹配"
+  },
+  "confirmRefresh": {
+    "message": "将刷新本地 Gemini 标签页并把新 Cookie 提交到中转站，确定？"
+  },
+  "optionsHeading": {
+    "message": "Gemini Cookie 保活助手"
+  },
+  "optionsSub": {
+    "message": "配置中转站连接（API 地址、密钥、轮询参数）。账号绑定请在插件主面板填写。"
+  },
+  "labelBaseUrl": {
+    "message": "中转站地址"
+  },
+  "hintBaseUrl": {
+    "message": "如 http://your-server-ip:5918"
+  },
+  "placeholderBaseUrl": {
+    "message": "http://你的中转站:端口"
+  },
+  "labelApiKey": {
+    "message": "API Key"
+  },
+  "hintApiKey": {
+    "message": "中转站的 sk- 开头密钥；若配置了独立的 ADMIN_API_KEY（gemini2api ≥ v1.6.16），此处填管理密钥"
+  },
+  "labelInterval": {
+    "message": "轮询间隔（秒）"
+  },
+  "hintIntervalMin": {
+    "message": "最小 30"
+  },
+  "labelCooldown": {
+    "message": "刷新冷却（秒）"
+  },
+  "hintCooldown": {
+    "message": "同账号刷新后不重复"
+  },
+  "saveBtn": {
+    "message": "保存"
+  },
+  "testBtn": {
+    "message": "测试连接"
+  },
+  "msgFillBaseUrl": {
+    "message": "请填写中转站地址"
+  },
+  "msgSavedOk": {
+    "message": "✅ 已保存，配置生效"
+  },
+  "msgSavedNoPerm": {
+    "message": "⚠ 配置已保存，但未授予该中转站访问权限，请求会失败——请重新点保存并允许权限"
+  },
+  "msgFillBaseUrlFirst": {
+    "message": "请先填写中转站地址"
+  },
+  "msgNoPerm": {
+    "message": "未授予访问权限"
+  },
+  "msgTesting": {
+    "message": "测试中…"
+  },
+  "msgConnectOk": {
+    "message": "连接成功，账号：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "msgConnectFail": {
+    "message": "连接失败：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "msgNoAccounts": {
+    "message": "（无）"
+  },
+  "errTabTimeout": {
+    "message": "标签页加载超时"
+  },
+  "errNoGeminiTab": {
+    "message": "未找到已打开的 gemini.google.com 标签页，请先打开一个并登录"
+  },
+  "errNoBaseUrl": {
+    "message": "未配置中转站地址"
+  },
+  "errRequestFail": {
+    "message": "请求失败: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errAccountNotFound": {
+    "message": "账号 $1 不存在（HTTP 404），请检查设置",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errPutFail": {
+    "message": "PUT 失败 HTTP $1: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "errPutRequestFail": {
+    "message": "PUT 请求失败: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errReloadFail": {
+    "message": "reload 失败 HTTP $1: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "errReloadRequestFail": {
+    "message": "reload 请求失败: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errMissingConfig": {
+    "message": "缺少配置或账号 ID"
+  },
+  "logTabSlow": {
+    "message": "标签页加载较慢，继续等待 Google 轮换 PSIDTS…"
+  },
+  "logAccountCooldown": {
+    "message": "账号 $1 处于冷却期，跳过本轮",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logAccountExpiredSubmit": {
+    "message": "账号 $1 已过期且与本地账号匹配，提交新 Cookie…",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logCookieSubmitted": {
+    "message": "账号 $1 新 Cookie 已提交（$2）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logCheckAfterSubmitActive": {
+    "message": "账号 $1 提交后检测：已恢复活动",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logCheckAfterSubmitStatus": {
+    "message": "账号 $1 提交后检测：$2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logCheckAfterSubmitFail": {
+    "message": "账号 $1 提交后检测失败：$2，下轮轮询再验证",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSubmitFail": {
+    "message": "账号 $1 提交失败：$2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logNoRelayUrl": {
+    "message": "未配置中转站地址，请先到设置页填写"
+  },
+  "logStatusQueryFail": {
+    "message": "查询状态失败：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logCheckOk": {
+    "message": "检查完成：账号正常（$1 个活动$2）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logCheckOkIds": {
+    "message": "：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logNoPsidAfterRefresh": {
+    "message": "刷新后读不到本地 __Secure-1PSID，本浏览器未登录 Gemini，无法保活"
+  },
+  "logPsidMismatchStillSubmit": {
+    "message": "注意：本地 PSID 与账号 $1 记录的不同（cookie 已变，属正常），仍按指定账号提交",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logNoAccountIdNoMatch": {
+    "message": "未指定账号 ID，且本地 PSID($1…)与所有过期账号都不匹配，无法判断该提交给谁。请在侧边栏填写本浏览器负责的账号 ID",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSkipMismatch": {
+    "message": "跳过 $1 个 PSID 不匹配的账号：$2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logInstalled": {
+    "message": "插件已安装/更新，定时轮询已启动"
+  },
+  "logCleared": {
+    "message": "日志已清空"
+  },
+  "logForceRefreshFail": {
+    "message": "强制刷新失败：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logNoLocalPsid": {
+    "message": "读不到本地 PSID，本浏览器未登录 Gemini"
+  },
+  "logRelayNoAccount": {
+    "message": "中转站没有账号 $1，请检查设置",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logNoAccountIdMatch": {
+    "message": "未指定账号 ID 且本地 PSID($1…)与所有账号都不匹配，无法判断提交给谁，请在侧边栏填写账号 ID",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieEmpty": {
+    "message": "（空）"
+  },
+  "errHttpStatus": {
+    "message": "HTTP $1: $2",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "placeholderApiKey": {
+    "message": "sk-..."
+  }
 }
