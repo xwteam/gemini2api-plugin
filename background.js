@@ -1,11 +1,13 @@
 // background.js —— service worker：定时轮询中转站，过期时刷新本地浏览器并提交新 cookie
-import { getConfig, fetchStatus, submitCookies } from "./api.js";
-import { readGeminiCookies, isSameAccount, GEMINI_URL } from "./cookies.js";
+import { getConfig, fetchStatus, submitCookies, checkAccount } from "./api.js";
+import { readGeminiCookies, isSameAccount } from "./cookies.js";
 
 const ALARM_NAME = "gemini-cookie-poll";
 const LOG_KEY = "actionLog";
-const COOLDOWN_KEY = "cooldownMap"; // { accountId: timestamp_ms }
+const COOLDOWN_KEY = "cooldownMap";
+const LAST_STATUS_KEY = "lastPollStatus"; // 减少重复日志
 const MAX_LOG = 200;
+let _pollRunning = false;
 
 // ---------- 日志（存 storage.local，滚动保存最新 MAX_LOG 条，popup 读取展示）----------
 // 用串行队列避免并发 log() 的「读-改-写」竞态导致丢日志。
@@ -37,7 +39,17 @@ async function setCooldown(accountId) {
 
 // ---------- 找到并静默刷新一个 gemini 标签页 ----------
 function waitTabComplete(tabId, timeoutMs = 60000) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      if (tab.status === "complete") {
+        resolve();
+        return;
+      }
+    } catch (e) {
+      reject(e);
+      return;
+    }
     const timer = setTimeout(() => {
       chrome.tabs.onUpdated.removeListener(onUpdated);
       reject(new Error("标签页加载超时"));
@@ -82,7 +94,14 @@ async function handleExpiredAccount(cfg, account, localPsid, localPsidts) {
   const sub = await submitCookies(cfg, accountId, localPsid, localPsidts);
   if (sub.ok) {
     await setCooldown(accountId);
-    await log(`账号 ${accountId} 新 Cookie 已提交（${sub.via}），等待下轮验证`, "success");
+    await log(`账号 ${accountId} 新 Cookie 已提交（${sub.via}）`, "success");
+    const chk = await checkAccount(cfg, accountId);
+    if (chk.ok) {
+      const st = chk.status === "active" ? "已恢复活动" : `状态：${chk.status || "未知"}`;
+      await log(`账号 ${accountId} 提交后检测：${st}`, chk.status === "active" ? "success" : "warn");
+    } else {
+      await log(`账号 ${accountId} 提交后检测失败：${chk.error}，下轮轮询再验证`, "warn");
+    }
   } else {
     await log(`账号 ${accountId} 提交失败：${sub.error}`, "error");
   }
@@ -92,6 +111,16 @@ async function handleExpiredAccount(cfg, account, localPsid, localPsidts) {
 // 防串号核心：一个浏览器只登录一个 Google 账号，本地 PSID 唯一确定“本浏览器负责哪个账号”。
 // 只把本地 Cookie 提交给 PSID 匹配的那个账号，绝不张冠李戴。
 async function pollOnce() {
+  if (_pollRunning) return;
+  _pollRunning = true;
+  try {
+    await _pollOnceInner();
+  } finally {
+    _pollRunning = false;
+  }
+}
+
+async function _pollOnceInner() {
   const cfg = await getConfig();
   if (!cfg.baseUrl) {
     await log("未配置中转站地址，请先到设置页填写", "warn");
@@ -122,8 +151,13 @@ async function pollOnce() {
   }
 
   if (!expired.length) {
-    const ids = accounts.map((a) => a.id).join(", ");
-    await log(`检查完成：账号正常（${activeCount} 个活动${ids ? "：" + ids : ""}），无需刷新`, "info");
+    const statusKey = accounts.map((a) => `${a.id}:${a.status}`).join("|");
+    const { [LAST_STATUS_KEY]: lastKey } = await chrome.storage.local.get(LAST_STATUS_KEY);
+    if (statusKey !== lastKey) {
+      const ids = accounts.map((a) => a.id).join(", ");
+      await log(`检查完成：账号正常（${activeCount} 个活动${ids ? "：" + ids : ""}）`, "info");
+      await chrome.storage.local.set({ [LAST_STATUS_KEY]: statusKey });
+    }
     return;
   }
 

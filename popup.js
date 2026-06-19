@@ -13,6 +13,17 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+function statusLabel(status, coolingDown) {
+  if (coolingDown) return { cls: "expired", text: "冷却中" };
+  switch (status) {
+    case "active": return { cls: "active", text: "活动" };
+    case "expired": return { cls: "expired", text: "已过期" };
+    case "disabled": return { cls: "expired", text: "已禁用" };
+    case "refreshing": return { cls: "active", text: "刷新中" };
+    default: return { cls: "expired", text: status || "未知" };
+  }
+}
+
 async function renderAccounts(silent = false) {
   const box = $("accounts");
   const cfg = await getConfig();
@@ -33,11 +44,10 @@ async function renderAccounts(silent = false) {
     return;
   }
   box.innerHTML = list.map((a) => {
-    const cls = a.status === "active" ? "active" : "expired";
-    const label = a.status === "active" ? "活动" : "已过期";
+    const { cls, text: label } = statusLabel(a.status, a.cooling_down);
     const id = escapeHtml(a.id);
     const ck = a.psid ? `<div class="cookie">PSID ${escapeHtml(maskCookie(a.psid))}</div>` : "";
-    return `<div class="acct"><div><b>${id}</b>${ck}</div><span class="badge ${cls}">${label}</span></div>`;
+    return `<div class="acct"><div><b>${id}</b>${ck}</div><span class="badge ${cls}">${escapeHtml(label)}</span></div>`;
   }).join("");
 }
 
@@ -55,10 +65,10 @@ async function renderCookie() {
   const box = $("cookieBody");
   const { psid, psidts } = await readGeminiCookies();
 
-  const fmt = (v) => v ? (showFullCookie ? v : maskCookie(v)) : null;
+  const fmt = (v) => v ? escapeHtml(showFullCookie ? v : maskCookie(v)) : null;
   const row = (name, v) => {
-    if (!v) return `<div class="ck-row"><span class="ck-name">${name}</span><span class="ck-val ck-miss">✗ 未读到</span></div>`;
-    return `<div class="ck-row"><span class="ck-name">${name} <span class="ck-ok">✓ ${v.length}字</span></span><span class="ck-val">${fmt(v)}</span></div>`;
+    if (!v) return `<div class="ck-row"><span class="ck-name">${escapeHtml(name)}</span><span class="ck-val ck-miss">✗ 未读到</span></div>`;
+    return `<div class="ck-row"><span class="ck-name">${escapeHtml(name)} <span class="ck-ok">✓ ${v.length}字</span></span><span class="ck-val">${fmt(v)}</span></div>`;
   };
 
   let html = row("__Secure-1PSID", psid) + row("__Secure-1PSIDTS", psidts);
@@ -75,17 +85,16 @@ async function renderCookie() {
           // 指定了账号：按账号提交，PSID 仅作信息提示，不影响能否提交
           const acct = st.accounts.find((a) => a.id === cfg.accountId);
           if (!acct) {
-            html += `<div class="ck-match ck-miss">⚠ 中转站没有账号 ${cfg.accountId}，请检查设置</div>`;
+            html += `<div class="ck-match ck-miss">⚠ 中转站没有账号 ${escapeHtml(cfg.accountId)}，请检查设置</div>`;
           } else if (isSameAccount(psid, acct.psid)) {
-            html += `<div class="ck-match ck-ok">✓ 本地 Cookie 与账号 ${cfg.accountId} 一致，将提交给它</div>`;
+            html += `<div class="ck-match ck-ok">✓ 本地 Cookie 与账号 ${escapeHtml(cfg.accountId)} 一致，将提交给它</div>`;
           } else {
-            html += `<div class="ck-match" style="color:#b06000">本地 Cookie 与账号 ${cfg.accountId} 当前记录不同（cookie 已更新，正常），仍会提交给该账号</div>`;
+            html += `<div class="ck-match" style="color:#b06000">本地 Cookie 与账号 ${escapeHtml(cfg.accountId)} 当前记录不同（cookie 已更新，正常），仍会提交给该账号</div>`;
           }
         } else {
-          // 没指定账号：靠 PSID 自动匹配
           const matched = st.accounts.find((a) => isSameAccount(psid, a.psid));
           if (matched) {
-            html += `<div class="ck-match ck-ok">✓ 自动匹配到账号 ${matched.id}，将提交给它</div>`;
+            html += `<div class="ck-match ck-ok">✓ 自动匹配到账号 ${escapeHtml(matched.id)}，将提交给它</div>`;
           } else {
             html += `<div class="ck-match ck-miss">⚠ 未指定账号 ID 且与所有账号 PSID 都不匹配，无法判断提交给谁，请在设置页填账号 ID</div>`;
           }

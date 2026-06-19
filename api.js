@@ -61,7 +61,7 @@ async function fetchStatus(cfg) {
 }
 
 /**
- * 提交新 cookie 给中转站。有 accountId 用 PUT 精确更新，否则用 POST 全局兜底。
+ * 提交新 cookie 给中转站。有 accountId 用 PUT 精确更新；无 accountId 时用 POST 全局兜底。
  * 返回 {ok, via, error}。
  */
 async function submitCookies(cfg, accountId, psid, psidts) {
@@ -77,16 +77,17 @@ async function submitCookies(cfg, accountId, psid, psidts) {
         body,
       });
       if (resp.ok) return { ok: true, via: `PUT accounts/${accountId}` };
-      if (resp.status !== 404) {
-        return { ok: false, error: `PUT 失败 HTTP ${resp.status}: ${(await resp.text()).slice(0, 120)}` };
+      const errText = (await resp.text()).slice(0, 120);
+      if (resp.status === 404) {
+        return { ok: false, error: `账号 ${accountId} 不存在（HTTP 404），请检查设置` };
       }
-      // 404 落到全局兜底
+      return { ok: false, error: `PUT 失败 HTTP ${resp.status}: ${errText}` };
     } catch (e) {
       return { ok: false, error: `PUT 请求失败: ${e.message}` };
     }
   }
 
-  // 全局兜底
+  // 无 accountId 时才走全局兜底（单账号场景）
   try {
     const resp = await fetch(`${base}/admin/reload-cookies`, {
       method: "POST",
@@ -100,4 +101,26 @@ async function submitCookies(cfg, accountId, psid, psidts) {
   }
 }
 
-export { getConfig, fetchStatus, submitCookies, normalizeBase };
+/**
+ * 提交后立即检测账号是否恢复。返回 {ok, status, error}。
+ */
+async function checkAccount(cfg, accountId) {
+  const base = normalizeBase(cfg.baseUrl);
+  if (!base || !accountId) return { ok: false, error: "缺少配置或账号 ID" };
+  try {
+    const resp = await fetch(`${base}/admin/accounts/${encodeURIComponent(accountId)}/check`, {
+      method: "GET",
+      headers: authHeaders(cfg.apiKey),
+    });
+    if (!resp.ok) {
+      return { ok: false, error: `HTTP ${resp.status}: ${(await resp.text()).slice(0, 120)}` };
+    }
+    const data = await resp.json();
+    const status = data.status || data.account?.status || "";
+    return { ok: true, status, raw: data };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+export { getConfig, fetchStatus, submitCookies, checkAccount, normalizeBase };
