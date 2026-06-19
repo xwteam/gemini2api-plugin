@@ -83,7 +83,7 @@ N초마다 → GET /admin/status 로 중계 계정 상태 확인
 4. **압축해제된 확장 프로그램을 로드합니다** → 프로젝트 루트（`manifest.json` 있는 폴더） 선택
 
 > [!IMPORTANT]
-> Chrome은 `_`로 시작하는 파일/폴더를 거부합니다（**`_locales` 제외**）。v1.2.2부터 개발용은 `doc-templates/`, `gen_docs.py`로 변경. `_doc_templates` 오류 시 최신 코드를 받으세요.
+> `manifest.json`이 있는 저장소 루트를 로드하세요. 본 저장소는 **확장 실행 파일과 정적 docs**(`docs/`)만 포함 — 문서 생성 스크립트 없음.
 
 5. 확장 아이콘 → 사이드바:
    - 상단에서 **이 브라우저가 담당할 계정 ID** 바인딩 (예: `account-0`)
@@ -164,6 +164,9 @@ A: 패시브·저빈도이나 비공식 방식. 본인 판단.
 
 **Q: 계정 A Cookie가 B로 제출?**
 A: PSID 검증 후 불일치 시 거부. **브라우저당 1계정** 준수.
+
+**Q: `Cannot load extension with file or directory name _doc_templates`?**
+A: **v1.2.2+** 로 업데이트. **v1.2.3**부터 문서 생성 도구는 저장소에서 제거됨.
 
 ## ⚠ 알려진 제한
 

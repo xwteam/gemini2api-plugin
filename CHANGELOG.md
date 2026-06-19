@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2.3
+
+- **文档工具移出插件仓库**：删除 `gen_docs.py`、`doc-templates/`（维护者本地使用 `gemini2api-plugin-docs/` 目录，不推送 GitHub）
+- 仓库内仅保留扩展运行文件 + 静态 `docs/` + `README.md` / `CHANGELOG.md`
+
 ## v1.2.2
 
 - **修复无法加载扩展**：开发用目录 `_doc_templates` / `_gen_docs.py` 重命名为 `doc-templates` / `gen_docs.py`（Chrome 禁止 `_` 前缀除 `_locales` 外）
