@@ -30,10 +30,10 @@
     <label>中转站地址 <span class="hint">如 http://your-server-ip:5918</span></label>
     <input id="baseUrl" type="text" placeholder="http://你的中转站:端口" />
 
-    <label>API Key <span class="hint">中转站的 sk- 开头密钥</span></label>
+    <label>API Key <span class="hint">中转站的 sk- 开头密钥；若配置了独立的 ADMIN_API_KEY（gemini2api ≥ v1.6.16），此处填管理密钥</span></label>
     <input id="apiKey" type="password" placeholder="sk-..." />
 
-    <label>账号 ID <span class="hint">可选，留空则处理所有过期账号（多账号时建议填，如 account-0）</span></label>
+    <label>账号 ID <span class="hint">强烈建议填写（如 account-0）；留空则靠 PSID 自动匹配，gemini2api ≥ v1.6.16 脱敏后匹配精度降低</span></label>
     <input id="accountId" type="text" placeholder="account-0（可留空）" />
 
     <div class="row">

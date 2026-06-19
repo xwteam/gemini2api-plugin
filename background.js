@@ -36,6 +36,23 @@ async function setCooldown(accountId) {
 }
 
 // ---------- 找到并静默刷新一个 gemini 标签页 ----------
+function waitTabComplete(tabId, timeoutMs = 60000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      reject(new Error("标签页加载超时"));
+    }, timeoutMs);
+    function onUpdated(id, info) {
+      if (id === tabId && info.status === "complete") {
+        clearTimeout(timer);
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        resolve();
+      }
+    }
+    chrome.tabs.onUpdated.addListener(onUpdated);
+  });
+}
+
 async function refreshGeminiTab() {
   const tabs = await chrome.tabs.query({ url: "*://gemini.google.com/*" });
   if (!tabs.length) {
@@ -43,8 +60,13 @@ async function refreshGeminiTab() {
   }
   const tab = tabs[0];
   await chrome.tabs.reload(tab.id, { bypassCache: false });
-  // 等页面加载 + Google 前端 JS 轮换 PSIDTS
-  await new Promise((r) => setTimeout(r, 12000));
+  try {
+    await waitTabComplete(tab.id);
+  } catch {
+    await log("标签页加载较慢，继续等待 Google 轮换 PSIDTS…", "warn");
+  }
+  // 页面 complete 后再等 Google 前端 JS 轮换 PSIDTS
+  await new Promise((r) => setTimeout(r, 5000));
   return { ok: true, tabId: tab.id };
 }
 
@@ -171,8 +193,12 @@ chrome.runtime.onInstalled.addListener(() => {
     chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   }
   log("插件已安装/更新，定时轮询已启动", "info");
+  pollOnce().catch((e) => console.warn("[pollOnce]", e));
 });
-chrome.runtime.onStartup.addListener(() => rearmAlarm());
+chrome.runtime.onStartup.addListener(() => {
+  rearmAlarm();
+  pollOnce().catch((e) => console.warn("[pollOnce]", e));
+});
 
 // 配置变更（间隔等）时重设定时器
 chrome.storage.onChanged.addListener((changes, area) => {

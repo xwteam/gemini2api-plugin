@@ -50,10 +50,24 @@ function maskCookie(value) {
  * PSID 形如 "g.a000-xxxxx..."，其主体在 PSIDTS 轮换过程中保持稳定（被吊销才会变），
  * 因此可用作账号身份锚点。用较长前缀比对，避免误判。
  * 用于防串号：本地浏览器登录的账号必须和要刷新的目标账号一致才提交。
+ *
+ * gemini2api v1.6.16+ 的 /admin/status 会对 psid 脱敏为「前4位****后4位」，
+ * 此时改用首尾片段比对；完整 psid 仍走前缀比对。
  */
 function isSameAccount(psidA, psidB, prefixLen = 24) {
   if (!psidA || !psidB) return false;
   if (psidA === psidB) return true;
+  // 服务端脱敏格式，如 g.a0****xYz9
+  if (psidB.includes("****")) {
+    const head = psidB.slice(0, 4);
+    const tail = psidB.slice(-4);
+    return psidA.length >= 8 && psidA.startsWith(head) && psidA.endsWith(tail);
+  }
+  if (psidA.includes("****")) {
+    const head = psidA.slice(0, 4);
+    const tail = psidA.slice(-4);
+    return psidB.length >= 8 && psidB.startsWith(head) && psidB.endsWith(tail);
+  }
   return psidA.slice(0, prefixLen) === psidB.slice(0, prefixLen);
 }
 

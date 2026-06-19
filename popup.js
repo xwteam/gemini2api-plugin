@@ -5,6 +5,14 @@ import { readGeminiCookies, isSameAccount, maskCookie, COOKIE_PSID, COOKIE_PSIDT
 const $ = (id) => document.getElementById(id);
 let showFullCookie = false; // 是否显示完整 cookie 值
 
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 async function renderAccounts(silent = false) {
   const box = $("accounts");
   const cfg = await getConfig();
@@ -27,8 +35,9 @@ async function renderAccounts(silent = false) {
   box.innerHTML = list.map((a) => {
     const cls = a.status === "active" ? "active" : "expired";
     const label = a.status === "active" ? "活动" : "已过期";
-    const ck = a.psid ? `<div class="cookie">PSID ${maskCookie(a.psid)}</div>` : "";
-    return `<div class="acct"><div><b>${a.id}</b>${ck}</div><span class="badge ${cls}">${label}</span></div>`;
+    const id = escapeHtml(a.id);
+    const ck = a.psid ? `<div class="cookie">PSID ${escapeHtml(maskCookie(a.psid))}</div>` : "";
+    return `<div class="acct"><div><b>${id}</b>${ck}</div><span class="badge ${cls}">${label}</span></div>`;
   }).join("");
 }
 
@@ -37,7 +46,7 @@ async function renderLog() {
   const el = $("log");
   if (!actionLog.length) { el.innerHTML = `<div class="empty">暂无动作记录</div>`; return; }
   el.innerHTML = actionLog.map((e) =>
-    `<div class="line ${e.level}">${e.ts} · ${e.msg}</div>`
+    `<div class="line ${escapeHtml(e.level)}">${escapeHtml(e.ts)} · ${escapeHtml(e.msg)}</div>`
   ).join("");
 }
 
