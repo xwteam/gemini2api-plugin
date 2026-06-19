@@ -68,6 +68,7 @@ Normally the extension only polls silently. **It refreshes once only when expiry
 - **Per-account submit + anti-mix-up**: set Account ID to push cookies directly (works even when cookie values change); without ID, matches by local PSID to avoid cross-account submission
 - **Cooldown debounce**: after a refresh, same account enters cooldown to prevent repeated fights
 - **Pinned sidebar**: fixed right-side panel stays open for long monitoring sessions and action logs
+- **Multilingual UI**: extension UI and logs automatically follow Chrome browser language (Simplified & Traditional Chinese, English, Japanese, Korean), aligned with documentation locales
 - **Zero dependencies**: vanilla JavaScript + Manifest V3, no build step, no third-party libs
 - **Privacy**: API Key and cookies stay local and are sent only to your configured relay
 
