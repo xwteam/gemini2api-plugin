@@ -80,7 +80,11 @@ Normally the extension only polls silently. **It refreshes once only when expiry
 1. Download or clone this repo locally
 2. Open extensions: `chrome://extensions` (Chrome) or `edge://extensions` (Edge)
 3. Enable **Developer mode** (top right)
-4. Click **Load unpacked** and select this project root
+4. Click **Load unpacked** and select this project root (the folder containing `manifest.json`)
+
+> [!IMPORTANT]
+> Chrome rejects extension directories with `_`-prefixed files/folders (**except `_locales`**). Since v1.2.2, dev files use `doc-templates/` and `gen_docs.py`. If you still see `_doc_templates` errors, pull the latest code.
+
 5. Click the extension icon → open the sidebar:
    - At the top, **bind the Account ID** this browser owns (e.g. `account-0`)
    - **Relay settings** (top right) for URL and API Key (see below)
@@ -171,6 +175,20 @@ A: Passive mode with very low frequency — still non-official; assess risk your
 
 **Q: Can account A's cookies be submitted to account B?**
 A: No. Local PSID is verified against the target account before submit. Still use **one account per browser** (see Multi-Account).
+
+**Q: `Cannot load extension with file or directory name _doc_templates`?**
+A: Update to **v1.2.2+** and pull the latest repo. Older builds had `_`-prefixed dev folders that Chrome refuses to load.
+
+## 📝 Documentation
+
+| Path | Purpose |
+|------|---------|
+| `README.md` | Simplified Chinese (source) |
+| `doc-templates/` | Templates for zh-TW / en / ja / ko |
+| `gen_docs.py` | Generates `docs/{locale}/README.md` |
+| `CHANGELOG.md` | Release notes |
+
+After editing `README.md` or `doc-templates/*.md`, run `python gen_docs.py` to regenerate all locale docs.
 
 ## ⚠ Known Limitations
 

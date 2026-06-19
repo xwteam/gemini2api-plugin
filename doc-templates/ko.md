@@ -80,7 +80,11 @@ N초마다 → GET /admin/status 로 중계 계정 상태 확인
 1. 저장소 클론 또는 다운로드
 2. 확장 프로그램 페이지: `chrome://extensions` 또는 `edge://extensions`
 3. **개발자 모드** 활성화
-4. **압축해제된 확장 프로그램을 로드합니다** → 프로젝트 루트 선택
+4. **압축해제된 확장 프로그램을 로드합니다** → 프로젝트 루트（`manifest.json` 있는 폴더） 선택
+
+> [!IMPORTANT]
+> Chrome은 `_`로 시작하는 파일/폴더를 거부합니다（**`_locales` 제외**）。v1.2.2부터 개발용은 `doc-templates/`, `gen_docs.py`로 변경. `_doc_templates` 오류 시 최신 코드를 받으세요.
+
 5. 확장 아이콘 → 사이드바:
    - 상단에서 **이 브라우저가 담당할 계정 ID** 바인딩 (예: `account-0`)
    - 우측 상단 **중계 설정**에서 URL·API Key 입력
@@ -160,6 +164,20 @@ A: 패시브·저빈도이나 비공식 방식. 본인 판단.
 
 **Q: 계정 A Cookie가 B로 제출?**
 A: PSID 검증 후 불일치 시 거부. **브라우저당 1계정** 준수.
+
+**Q: `Cannot load extension with file or directory name _doc_templates`?**
+A: **v1.2.2+** 로 업데이트 후 최신 저장소 pull. 구버전 `_` 접두 개발 폴더는 Chrome이 거부합니다.
+
+## 📝 문서
+
+| 경로 | 설명 |
+|------|------|
+| `README.md` | 간체 중국어 원본 |
+| `doc-templates/` | 번체 / 영 / 일 / 한 템플릿 |
+| `gen_docs.py` | `docs/{locale}/README.md` 생성 |
+| `CHANGELOG.md` | 변경 이력 |
+
+`README.md` 또는 `doc-templates/*.md` 수정 후 `python gen_docs.py` 실행.
 
 ## ⚠ 알려진 제한
 

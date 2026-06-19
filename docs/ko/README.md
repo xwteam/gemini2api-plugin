@@ -80,7 +80,11 @@ N초마다 → GET /admin/status 로 중계 계정 상태 확인
 1. 저장소 클론 또는 다운로드
 2. 확장 프로그램 페이지: `chrome://extensions` 또는 `edge://extensions`
 3. **개발자 모드** 활성화
-4. **압축해제된 확장 프로그램을 로드합니다** → 프로젝트 루트 선택
+4. **압축해제된 확장 프로그램을 로드합니다** → 프로젝트 루트（`manifest.json` 있는 폴더） 선택
+
+> [!IMPORTANT]
+> Chrome은 `_`로 시작하는 파일/폴더를 거부합니다（**`_locales` 제외**）。v1.2.2부터 개발용은 `doc-templates/`, `gen_docs.py`로 변경. `_doc_templates` 오류 시 최신 코드를 받으세요.
+
 5. 확장 아이콘 → 사이드바:
    - 상단에서 **이 브라우저가 담당할 계정 ID** 바인딩 (예: `account-0`)
    - 우측 상단 **중계 설정**에서 URL·API Key 입력

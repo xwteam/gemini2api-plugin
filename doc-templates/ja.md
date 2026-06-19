@@ -80,7 +80,11 @@ N 秒ごと → GET /admin/status で中継アカウント状態を確認
 1. 本リポジトリをクローンまたはダウンロード
 2. 拡張機能ページを開く：`chrome://extensions` または `edge://extensions`
 3. 右上の **デベロッパーモード** を有効化
-4. **パッケージ化されていない拡張機能を読み込む** でプロジェクトルートを選択
+4. **パッケージ化されていない拡張機能を読み込む** でプロジェクトルート（`manifest.json` があるフォルダ）を選択
+
+> [!IMPORTANT]
+> Chrome は `_` 始まりのファイル/フォルダを拒否します（**`_locales` を除く**）。v1.2.2 以降、開発用は `doc-templates/` と `gen_docs.py` に改名済み。`_doc_templates` エラーが出る場合は最新コードを取得してください。
+
 5. 拡張機能アイコン → サイドバーを開く：
    - 上部で **このブラウザが担当するアカウント ID** をバインド（例：`account-0`）
    - 右上 **中継設定** で URL と API Key を入力（下記参照）
@@ -160,6 +164,20 @@ A：パッシブ・低頻度ですが非公式手段です。自己判断で。
 
 **Q：アカウント混同は？**
 A：送信前に PSID を照合し不一致なら拒否。**1 ブラウザ 1 アカウント**を守ってください。
+
+**Q：`Cannot load extension with file or directory name _doc_templates`？**
+A：**v1.2.2+** に更新し最新リポジトリを取得。旧版の `_` プレフィックス開発フォルダは Chrome が拒否します。
+
+## 📝 ドキュメント
+
+| パス | 説明 |
+|------|------|
+| `README.md` | 簡体中国語メイン |
+| `doc-templates/` | 繁中 / 英 / 日 / 韓 テンプレート |
+| `gen_docs.py` | `docs/{locale}/README.md` 生成 |
+| `CHANGELOG.md` | 変更履歴 |
+
+`README.md` または `doc-templates/*.md` 編集後、`python gen_docs.py` で再生成。
 
 ## ⚠ 既知の制限
 
