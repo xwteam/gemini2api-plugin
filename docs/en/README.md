@@ -80,27 +80,39 @@ Normally the extension only polls silently. **It refreshes once only when expiry
 2. Open extensions: `chrome://extensions` (Chrome) or `edge://extensions` (Edge)
 3. Enable **Developer mode** (top right)
 4. Click **Load unpacked** and select this project root
-5. Click the extension icon → open the sidebar → **Settings** (top right) to configure
+5. Click the extension icon → open the sidebar:
+   - At the top, **bind the Account ID** this browser owns (e.g. `account-0`)
+   - **Relay settings** (top right) for URL and API Key (see below)
 
 ## ⚙ Configuration
 
-Fill in on the settings page:
+### Sidebar (this browser instance)
+
+| Setting | Description |
+|---------|-------------|
+| **Account ID** | **Strongly recommended** (e.g. `account-0`). One browser instance keeps alive one account — bind it here; use a different profile per account in multi-account setups |
+
+Click **Bind**. If empty, PSID auto-match is used (less reliable for multi-account).
+
+### Relay settings page
 
 | Setting | Description |
 |---------|-------------|
 | **Relay URL** | Your Gemini2API address, e.g. `http://1.2.3.4:5918` |
-| **API Key** | Relay `sk-` prefixed key |
-| **Account ID** | **Recommended** (e.g. `account-0`): submit directly to that account so keep-alive works after cookie rotation. If empty, PSID auto-match is used — may fail when cookies change significantly |
+| **API Key** | Relay `sk-` key; if gemini2api ≥ v1.6.16 uses separate `ADMIN_API_KEY`, enter the **admin key** here |
 | **Poll interval** | How often to check status; default 60s, minimum 30s |
 | **Refresh cooldown** | After refresh, skip same account for this long; default 120s |
 
 Click **Test connection**, then **Save** (browser will request host permission for your relay URL — allow it).
 
+> [!NOTE]
+> **gemini2api compatibility**: From v1.6.16, `/admin/status` returns masked PSID. Without Account ID, the extension matches first/last PSID fragments. **Always bind Account ID** for reliability.
+
 > [!IMPORTANT]
 > **One browser instance can keep alive only one account.** The browser has a single cookie jar for `gemini.google.com`; the extension always reads the currently logged-in account. Therefore:
 > - Keep **one logged-in `gemini.google.com` tab** open for the account you want to keep alive.
 > - **Use a dedicated browser profile** (separate Chrome profile / incognito / anti-detect browser) — do not mix with daily Google accounts or you risk wrong-account reads and cross-talk.
-> - **Set Account ID** in settings for the account this browser owns — direct submit + no mix-ups.
+> - **Bind Account ID** at the top of the sidebar (one ID per browser profile in multi-account setups).
 > - If the tab or browser closes, expired accounts cannot auto-recover.
 
 ## 👥 Multi-Account Setup
@@ -113,7 +125,7 @@ When the relay has multiple accounts, **use one isolated browser environment per
 | account-1 | Chrome profile B / anti-detect window 2 | Google account 1 |
 | … | … | … |
 
-Each instance uses the same relay URL and API Key; Account ID can be empty (PSID auto-match) or set explicitly. Browsers stay isolated — no cross-account leakage.
+Each instance: same **Relay settings** (URL + API Key); **different Account ID** bound at the sidebar top (e.g. profile A → `account-0`, profile B → `account-1`). Browsers stay isolated — no cross-account leakage.
 
 > [!TIP]
 > Chrome **Profiles** or anti-detect browsers give fully isolated cookie jars. Incognito works but cookies are lost when closed.
@@ -122,7 +134,7 @@ Each instance uses the same relay URL and API Key; Account ID can be empty (PSID
 
 Click the toolbar icon to open a **fixed right sidebar** (stays visible for monitoring).
 
-- **Sidebar**: account active/expired status, masked PSID preview, recent action log; **Check now** runs one poll; **Force refresh & submit** refreshes immediately; **Settings** in top right.
+- **Sidebar**: bind **Account ID** at top; account active/expired status, masked PSID, action log; **Check now** / **Force refresh & submit**; **Relay settings** (top right) for connection config.
 - **Local cookies**: shows `__Secure-1PSID` / `__Secure-1PSIDTS` from this browser (masked by default; **👁 Show full** for full values) and whether they match relay accounts.
 - **Badge**:
   - Blue number = active accounts
