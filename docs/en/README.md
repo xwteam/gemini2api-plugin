@@ -177,7 +177,10 @@ A: Passive mode with very low frequency — still non-official; assess risk your
 A: No. Local PSID is verified against the target account before submit. Still use **one account per browser** (see Multi-Account).
 
 **Q: `Cannot load extension with file or directory name _doc_templates`?**
-A: Update to **v1.2.2+** and pull latest. Since **v1.2.3**, doc-generation tools are removed from this repo.
+A: Update to **v1.2.3** and `git pull`. If `_doc_templates` still exists locally, your copy is outdated.
+
+**Q: Why is there still an `_locales` folder? Will it block install?**
+A: **No.** `_locales` is Chrome’s **official** i18n folder name (required for `default_locale`). Chrome **only** allows this `_`-prefixed directory; others like `_doc_templates` are rejected. Do not rename or delete it.
 
 ## ⚠ Known Limitations
 

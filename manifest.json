@@ -1,82 +1,41 @@
-{
-
-  "manifest_version": 3,
-
-  "default_locale": "zh_CN",
-
-  "name": "__MSG_extName__",
-
-  "version": "1.2.3",
-
-  "description": "__MSG_extDescription__",
-
-  "permissions": [
-
-    "cookies",
-
-    "tabs",
-
-    "storage",
-
-    "alarms",
-
-    "sidePanel"
-
-  ],
-
-  "host_permissions": [
-
-    "*://*.google.com/*"
-
-  ],
-
-  "optional_host_permissions": [
-
-    "*://*/*"
-
-  ],
-
-  "background": {
-
-    "service_worker": "background.js",
-
-    "type": "module"
-
-  },
-
-  "action": {
-
-    "default_title": "__MSG_actionTitle__",
-
-    "default_icon": {
-
-      "16": "icons/icon16.png",
-
-      "48": "icons/icon48.png",
-
-      "128": "icons/icon128.png"
-
-    }
-
-  },
-
-  "side_panel": {
-
-    "default_path": "popup.html"
-
-  },
-
-  "options_page": "options.html",
-
-  "icons": {
-
-    "16": "icons/icon16.png",
-
-    "48": "icons/icon48.png",
-
-    "128": "icons/icon128.png"
-
-  }
-
-}
-
+{
+  "manifest_version": 3,
+  "default_locale": "zh_CN",
+  "name": "__MSG_extName__",
+  "version": "1.2.3",
+  "description": "__MSG_extDescription__",
+  "permissions": [
+    "cookies",
+    "tabs",
+    "storage",
+    "alarms",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "*://*.google.com/*"
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "__MSG_actionTitle__",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
