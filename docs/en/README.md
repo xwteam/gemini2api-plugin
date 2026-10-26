@@ -59,20 +59,21 @@ chrome.cookies.onChanged sees __Secure-1PSIDTS / __Secure-1PSID change
   (every scheduled poll re-checks too, in case the service worker was suspended mid-wait)
 
 ② Rescue: every N seconds → GET /admin/status to check relay account health
-  ├─ active and healthy → do nothing
-  └─ expired, or is_healthy=false (session invalid)
+  ├─ anything else → do nothing
+  └─ expired, or a v1.6.41–v1.6.43 relay still says active with is_healthy=false (session invalid)
+        → all in cooldown, or (without an Account ID) no local PSID match → no refresh, wait for the next poll
         → refresh an open gemini.google.com tab locally
         → chrome.cookies reads new __Secure-1PSID / __Secure-1PSIDTS
         → PUT /admin/accounts/{id}/cookies to submit to relay
         → next poll verifies active again
 ```
 
-The extension never rotates cookies itself: active sync only hands over what the browser already rotated. Otherwise it leaves the browser alone — **it refreshes the tab once only when expiry or an invalid session is detected**, with a cooldown to avoid repeated refreshes. Both paths send the header `X-Gemini2API-Keepalive: gemini2api-plugin/<version>`; **gemini2api ≥ v1.6.44** then marks the account as browser-kept-alive and stops rotating it server-side, so the browser and relay stop invalidating each other's PSIDTS. Older relays ignore the header.
+The extension never rotates cookies itself: active sync only hands over what the browser already rotated. Otherwise it leaves the browser alone — **it refreshes the tab once only when expiry or an invalid session is detected and an account is actually due for a submit**, with a cooldown to avoid repeated refreshes. Both paths send the header `X-Gemini2API-Keepalive: gemini2api-plugin/<version>`; **gemini2api ≥ v1.6.44** then marks the account as browser-kept-alive and stops rotating it server-side, so the browser and relay stop invalidating each other's PSIDTS. Older relays ignore the header.
 
 ## 🌟 Core Features
 
 - **Active sync (v1.3.0)**: pushes cookies to the relay ~10s after the browser rotates them — only when they changed, at most once per 60s per account, with a catch-up on every poll; the extension itself never rotates cookies or reloads pages for this
-- **Rescue**: when an account expires, or the relay still says active but `is_healthy=false` (session invalid), refreshes the tab and submits new cookies; otherwise it leaves the browser alone
+- **Rescue**: when an account expires, or a v1.6.41–v1.6.43 relay still says active but `is_healthy=false` (session invalid), refreshes the tab and submits new cookies — but not while in cooldown, or (without an Account ID) when the local PSID matches none of them; otherwise it leaves the browser alone
 - **HttpOnly cookie access**: uses `chrome.cookies` to read `__Secure-` auth cookies that page JS cannot
 - **Silent refresh**: auto-refreshes open Gemini tabs — no manual steps
 - **Per-account submit + anti-mix-up**: set Account ID to push cookies directly (works even when cookie values change); without ID, matches by local PSID to avoid cross-account submission
@@ -123,7 +124,9 @@ Click **Test connection**, then **Save** (browser will request host permission f
 > [!NOTE]
 > **gemini2api compatibility**:
 > - From v1.6.16, `/admin/status` returns masked PSID. Without Account ID, the extension matches first/last PSID fragments. **Always bind Account ID** for reliability.
+> - v1.6.40 and earlier don't update an account's PSID record in `/admin/status` after cookies are submitted. If the relay account was originally set up with cookies from another session (e.g. an incognito window), active sync in bound mode skips it because the PSID doesn't match (the log says so), leaving only the expiry rescue; upgrade the relay and click **Force refresh & submit** once.
 > - v1.6.41–v1.6.43 keep reporting `active` for accounts whose Google session is dead and only set `is_healthy` to false; since v1.3.0 the extension rescues those as "session invalid".
+> - **From v1.6.44**, accounts bounced to Google's login page are reported as `expired`; `active` with `is_healthy` false then only means the relay itself is temporarily unhealthy (network hiccups, 5xx, still starting up…), which new cookies won't fix — the extension shows "Unhealthy" and neither refreshes nor submits (it tells new relays from old ones by the `keepalive_mode` field in `/admin/status`).
 > - **From v1.6.44**, accounts the extension has pushed cookies to are marked as browser-kept-alive (`keepalive_mode` is `browser` in `/admin/status`) and the relay stops rotating them. To hand an account back to server-side rotation (e.g. you switched to cookies from an incognito window), first disable this extension in that browser, then update the cookies manually in the panel — otherwise the next sync marks it browser-kept-alive again.
 
 > [!IMPORTANT]
@@ -152,7 +155,7 @@ Each instance: same **Relay settings** (URL + API Key); **different Account ID**
 
 Click the toolbar icon to open a **fixed right sidebar** (stays visible for monitoring).
 
-- **Sidebar**: bind **Account ID** at top; account active / expired / session-invalid status, masked PSID, action log (including active-sync entries); **Check now** / **Force refresh & submit**; **Relay settings** (top right) for connection config.
+- **Sidebar**: bind **Account ID** at top; account active / expired / session-invalid / unhealthy status, masked PSID, action log (including active-sync entries); **Check now** / **Force refresh & submit**; **Relay settings** (top right) for connection config.
 - **Local cookies**: shows `__Secure-1PSID` / `__Secure-1PSIDTS` from this browser (masked by default; **👁 Show full** for full values) and whether they match relay accounts.
 - **Badge**:
   - Blue number = active accounts
@@ -186,14 +189,14 @@ A: Google may have revoked the main session (PSID cannot be recovered by refresh
 **Q: Why does the extension submit cookies when nothing has expired?**
 A: That is active sync (v1.3.0). Your browser and the relay share one Google session; once the browser rotates PSIDTS, the relay's copy soon stops working, so the extension forwards the new value (only when it changed, at most once per 60s per account, without refreshing the tab). With gemini2api ≥ v1.6.44 the relay then stops rotating that account itself, so the two sides stop knocking each other out.
 
-**Q: What does "Session invalid" in the sidebar mean?**
-A: The relay still reports `active`, but `is_healthy` is false — the Google session is actually dead (gemini2api v1.6.41–v1.6.43 report it this way). The extension treats it like "Expired": it refreshes the tab and submits new cookies.
+**Q: What do "Session invalid" and "Unhealthy" in the sidebar mean?**
+A: Both mean the relay still reports `active` with `is_healthy` false; which one you see depends on the relay version. "Session invalid" only appears with gemini2api v1.6.41–v1.6.43, which report dead Google sessions this way; the extension treats it like "Expired" — it refreshes the tab and submits new cookies (on those versions, unhealthiness from other causes such as network hiccups is treated the same way). From v1.6.44, accounts bounced to the login page are reported as `expired`, so `active` but unhealthy only means the relay itself has a problem (network hiccups, 5xx, still starting up…), not a dead login: the extension shows "Unhealthy", neither refreshes the tab nor submits, and you should check the relay's panel / logs.
 
 **Q: Will this get my account banned?**
 A: The extension makes no extra requests to Google: active sync only forwards cookies the browser already has, and only a rescue refreshes the tab — very low frequency. Still non-official; assess the risk yourself.
 
 **Q: Can account A's cookies be submitted to account B?**
-A: No. Local PSID is verified against the target account before submit. Still use **one account per browser** (see Multi-Account).
+A: Without an Account ID, the extension only submits to the account whose PSID matches the local one, and submits nothing if none (or several) match. With an Account ID bound, the binding wins: while that account is healthy, active sync skips it when the local PSID doesn't match the relay's record (e.g. this browser switched Google accounts) and notes it in the log instead of overwriting a working session; when the account needs a rescue (expired / session invalid) or you click **Force refresh & submit**, it still submits to the bound account without a PSID check (the log notes the mismatch). So still use **one account per browser** (see Multi-Account).
 
 **Q: `Cannot load extension with file or directory name _doc_templates`?**
 A: Update to **v1.2.3** and `git pull`. If `_doc_templates` still exists locally, your copy is outdated.
