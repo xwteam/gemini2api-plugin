@@ -178,19 +178,40 @@ export function createFakeChrome({ local = {}, sync = {}, jar = {}, relay = {}, 
     for (const e of Object.values(events)) e.fns.length = 0;
   }
 
-  return { chrome, fetch, stores, events, calls, jar, relay, killWorker };
+  // loadBackground() 加载过的 background 实例（用例结束时等它们空闲，避免残留异步串到下一个用例）
+  const instances = [];
+  return { chrome, fetch, stores, events, calls, jar, relay, killWorker, instances };
 }
 
-/** 让出事件循环几轮（setImmediate 不受 mock.timers 影响），等 storage / crypto 等异步落定 */
+/** 让出事件循环几轮（setImmediate 不受 mock.timers 影响），只用于等纯微任务链落定 */
 export async function flush(rounds = 5) {
   for (let i = 0; i < rounds; i++) await new Promise((resolve) => setImmediate(resolve));
 }
 
+// 下面的等待一律按「真实时间」设上限（performance.now 不受 mock.timers 影响），不按循环次数：
+// WebCrypto 摘要在线程池里完成，并行跑多个测试文件、CPU 紧张时一次摘要可能要好几毫秒，
+// 比几百次 setImmediate 还慢——按次数放弃会误判超时，残留的异步还会串进下一个用例。
+async function yieldFor(ms) {
+  const end = performance.now() + ms;
+  do {
+    await new Promise((resolve) => setImmediate(resolve));
+  } while (performance.now() < end);
+}
+
+/** 在真实时间 timeoutMs 内等 cond() 成立（期间让出事件循环），超时抛错 */
+export async function waitFor(cond, { timeoutMs = 10_000 } = {}) {
+  const deadline = performance.now() + timeoutMs;
+  while (!cond()) {
+    if (performance.now() > deadline) throw new Error(`condition not met within ${timeoutMs}ms`);
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
+
 /**
- * 等 promise 落定；期间按 stepMs 推进 mock 时钟（用于要等 setTimeout 的路径，
- * 如救火流程里刷新标签页后固定等 5 秒）。
+ * 等 promise 落定；期间每让出约 1ms 真实时间就把 mock 时钟推进 stepMs
+ * （用于要等 setTimeout 的路径，如救火流程里刷新标签页后固定等 5 秒）。
  */
-export async function settle(t, promise, { stepMs = 500, maxSteps = 400 } = {}) {
+export async function settle(t, promise, { stepMs = 100, timeoutMs = 10_000 } = {}) {
   let done = false;
   let value;
   let error;
@@ -204,13 +225,23 @@ export async function settle(t, promise, { stepMs = 500, maxSteps = 400 } = {}) 
       error = e;
     },
   );
-  for (let i = 0; !done && i < maxSteps; i++) {
-    await flush(2);
+  const deadline = performance.now() + timeoutMs;
+  while (!done) {
+    if (performance.now() > deadline) throw new Error(`promise did not settle within ${timeoutMs}ms`);
+    await yieldFor(1);
     if (!done) t.mock.timers.tick(stepMs);
   }
-  if (!done) throw new Error("promise did not settle");
   if (error) throw error;
   return value;
+}
+
+/** 用例收尾：最多等 timeoutMs（真实时间）让这些 background 实例把排队的轮询 / 同步跑完 */
+export async function drainInstances(instances, { timeoutMs = 2_000 } = {}) {
+  let idle = false;
+  Promise.all(instances.map((bg) => bg.whenIdle())).then(() => {
+    idle = true;
+  });
+  await waitFor(() => idle, { timeoutMs }).catch(() => {});
 }
 
 let seq = 0;
@@ -218,5 +249,7 @@ let seq = 0;
 export async function loadBackground(fake) {
   globalThis.chrome = fake.chrome;
   globalThis.fetch = fake.fetch;
-  return import(new URL(`../../background.js?instance=${++seq}`, import.meta.url).href);
+  const bg = await import(new URL(`../../background.js?instance=${++seq}`, import.meta.url).href);
+  fake.instances.push(bg);
+  return bg;
 }

@@ -1,7 +1,7 @@
 // background.js 接线测试：用假 chrome.* / fetch 驱动 service worker 的真实代码路径
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { createFakeChrome, flush, loadBackground, settle } from "./helpers/fake-chrome.mjs";
+import { createFakeChrome, drainInstances, flush, loadBackground, settle } from "./helpers/fake-chrome.mjs";
 
 const BASE = "http://relay.test:5918";
 const PSID = "g.a000AAAAbbbbCCCCddddEEEEffffGGGGhhhhIIIIjjjjKKKK1234";
@@ -27,7 +27,9 @@ async function setup(t, { local = {}, accounts = [acct()], jar } = {}) {
   const had = "chrome" in globalThis;
   const prevChrome = globalThis.chrome;
   const prevFetch = globalThis.fetch;
-  t.after(() => {
+  t.after(async () => {
+    // 先等本用例的 worker 实例空闲，再还原全局，免得残留的异步打到下一个用例的假 chrome 上
+    await drainInstances(fake.instances);
     globalThis.fetch = prevFetch;
     if (had) globalThis.chrome = prevChrome;
     else delete globalThis.chrome;

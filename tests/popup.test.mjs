@@ -1,7 +1,7 @@
 // popup.js（侧边栏）渲染测试：用最小 DOM stub 跑真实的 renderAccounts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createFakeChrome, flush } from "./helpers/fake-chrome.mjs";
+import { createFakeChrome, waitFor } from "./helpers/fake-chrome.mjs";
 
 function fakeDocument() {
   const els = new Map();
@@ -63,7 +63,7 @@ test("侧边栏：仍报 active 但 is_healthy=false 显示红色「会话失效
 
   await import(new URL(`../popup.js?instance=${++seq}`, import.meta.url).href);
   for (const fn of listeners.DOMContentLoaded || []) fn();
-  for (let i = 0; i < 50 && !byId("accounts").innerHTML.includes("acc3"); i++) await flush(2);
+  await waitFor(() => byId("accounts").innerHTML.includes("acc3"));
 
   const html = byId("accounts").innerHTML;
   const badgeOf = (id) => {
