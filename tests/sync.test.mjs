@@ -141,12 +141,27 @@ describe("isAuthCookieChange", () => {
 });
 
 describe("pickTarget", () => {
-  test("绑定了账号 ID → 就是它，即使 PSID 对不上（psidMatch=false）", () => {
-    const accounts = [acct({ id: "acc1", psid: masked(OTHER_PSID) }), acct({ id: "acc0", psid: masked(OTHER_PSID) })];
-    const r = pickTarget(accounts, { accountId: "acc0" }, PSID);
-    assert.equal(r.account.id, "acc0");
-    assert.equal(r.reason, "bound");
-    assert.equal(r.psidMatch, false);
+  test("绑定账号需要救（expired / 旧中转站会话失效）→ PSID 对不上也选它（psidMatch=false，与救火一致）", () => {
+    for (const over of [{ status: "expired" }, { is_healthy: false }, { status: "expired", keepalive_mode: "browser" }]) {
+      const accounts = [acct({ id: "acc1", psid: masked(OTHER_PSID) }), acct({ id: "acc0", psid: masked(OTHER_PSID), ...over })];
+      const r = pickTarget(accounts, { accountId: "acc0" }, PSID);
+      assert.equal(r.account && r.account.id, "acc0", JSON.stringify(over));
+      assert.equal(r.reason, "bound");
+      assert.equal(r.psidMatch, false);
+    }
+  });
+  test("绑定账号状态正常但 PSID 对不上（本浏览器换登了别的账号？）→ bound-mismatch，不覆盖", () => {
+    for (const over of [{}, { keepalive_mode: "browser" }, { is_healthy: false, keepalive_mode: "browser" }, { is_healthy: undefined }]) {
+      const r = pickTarget([acct({ id: "acc0", psid: masked(OTHER_PSID), ...over })], { accountId: "acc0" }, PSID);
+      assert.equal(r.account, null, JSON.stringify(over));
+      assert.equal(r.reason, "bound-mismatch");
+      assert.equal(r.accountId, "acc0");
+    }
+  });
+  test("绑定了账号 ID 但本地没有 PSID → no-local-psid", () => {
+    const r = pickTarget([acct({ id: "acc0" })], { accountId: "acc0" }, null);
+    assert.equal(r.account, null);
+    assert.equal(r.reason, "no-local-psid");
   });
   test("绑定了账号 ID 且 PSID 对得上 → psidMatch=true", () => {
     const r = pickTarget([acct({ id: "acc0" })], { accountId: "acc0" }, PSID);

@@ -160,7 +160,7 @@
     }
   },
   "cookieMismatchWarn": {
-    "message": "Local cookie differs from account $1 record (updated cookie is normal) — still submitting to that account",
+    "message": "Local PSID differs from account $1's record on the relay: active sync won't overwrite it while it is healthy; it is still submitted when the account needs a rescue (expired / session invalid) or on \"Force refresh & submit\"",
     "placeholders": {
       "1": {
         "content": "$1"
@@ -558,6 +558,17 @@
     "placeholders": {
       "1": {
         "content": "$1"
+      }
+    }
+  },
+  "logSyncBoundMismatch": {
+    "message": "Sync skipped: local PSID($1…) differs from bound account $2's record on the relay and that account is healthy, so it is not overwritten (did this browser switch Google accounts?). To replace it anyway, use \"Force refresh & submit\"; it will still be rescued if it expires or its session becomes invalid",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
       }
     }
   },

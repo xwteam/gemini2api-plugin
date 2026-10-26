@@ -171,8 +171,12 @@ function syncSkipMessage(pick, psid) {
   switch (pick.reason) {
     case "bound-missing":
       return t("logSyncBoundMissing", pick.accountId);
+    case "bound-mismatch":
+      return t("logSyncBoundMismatch", psid.slice(0, 10), pick.accountId);
     case "disabled":
       return t("logSyncDisabled", pick.accountId);
+    case "no-local-psid":
+      return t("logSyncNoLocalCookie");
     case "ambiguous":
       return t("logSyncAmbiguous", psid.slice(0, 10), pick.candidates.join(", "));
     default:

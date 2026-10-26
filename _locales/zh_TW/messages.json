@@ -160,7 +160,7 @@
     }
   },
   "cookieMismatchWarn": {
-    "message": "本機 Cookie 與帳號 $1 目前記錄不同（cookie 已更新，正常），仍會提交給該帳號",
+    "message": "本機 PSID 與帳號 $1 在中轉站的記錄不同：該帳號正常時主動同步不會覆蓋它；過期/工作階段失效需要救火、或按「強制重新整理提交」時仍會提交給它",
     "placeholders": {
       "1": {
         "content": "$1"
@@ -558,6 +558,17 @@
     "placeholders": {
       "1": {
         "content": "$1"
+      }
+    }
+  },
+  "logSyncBoundMismatch": {
+    "message": "主動同步跳過：本機 PSID($1…)與綁定帳號 $2 在中轉站的記錄不一致，而該帳號目前正常，不覆蓋它（本瀏覽器是否改登了別的 Google 帳號？）。確實要替換請按「強制重新整理提交」；該帳號過期或工作階段失效時仍會照常救火",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
       }
     }
   },

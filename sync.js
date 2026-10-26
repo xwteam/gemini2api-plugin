@@ -66,11 +66,13 @@ export function isAuthCookieChange(changeInfo) {
 
 /**
  * 选主动同步的目标账号。
- * - 侧边栏绑定了账号 ID → 就是该账号（与现有救火路径一致：绑定优先，PSID 对不上也照推，
- *   只把 psidMatch 置 false 供调用方记一条提示）；
+ * - 侧边栏绑定了账号 ID → 该账号。PSID 对不上时：
+ *   - 账号需要救（needsRefresh）→ 照推（与救火路径一致：绑定优先），psidMatch 置 false 供调用方记提示；
+ *   - 账号状态正常 → 不推（bound-mismatch）。本浏览器很可能换登了别的谷歌账号，照推会把另一个
+ *     账号的会话覆盖到中转站这个正常的账号上、原会话找不回来；真要替换由用户点「强制刷新提交」。
  * - 没绑定 → 用 isSameAccount 按 PSID 在 /admin/status 里找，唯一命中才推，多个命中不猜。
  * 已禁用的账号不推。返回 { account, reason, ... }，account 为 null 时 reason 说明为什么跳过：
- * bound-missing / disabled / no-local-psid / no-match / ambiguous。
+ * bound-missing / disabled / bound-mismatch / no-local-psid / no-match / ambiguous。
  */
 export function pickTarget(accounts, cfg, localPsid) {
   const list = Array.isArray(accounts) ? accounts.filter(Boolean) : [];
@@ -79,7 +81,10 @@ export function pickTarget(accounts, cfg, localPsid) {
     const account = list.find((a) => a.id === boundId);
     if (!account) return { account: null, reason: "bound-missing", accountId: boundId };
     if (account.status === "disabled") return { account: null, reason: "disabled", accountId: boundId };
-    return { account, reason: "bound", psidMatch: isSameAccount(localPsid, account.psid) };
+    if (!localPsid) return { account: null, reason: "no-local-psid" };
+    const psidMatch = isSameAccount(localPsid, account.psid);
+    if (!psidMatch && !needsRefresh(account)) return { account: null, reason: "bound-mismatch", accountId: boundId };
+    return { account, reason: "bound", psidMatch };
   }
   if (!localPsid) return { account: null, reason: "no-local-psid" };
   const matches = list.filter((a) => isSameAccount(localPsid, a.psid));

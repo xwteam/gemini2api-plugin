@@ -19,6 +19,7 @@ export const V130_KEYS = [
   "logSyncNoMatch",
   "logSyncAmbiguous",
   "logSyncBoundMissing",
+  "logSyncBoundMismatch",
   "logSyncDisabled",
   "logSyncStatusFail",
   "syncTriggerCookie",

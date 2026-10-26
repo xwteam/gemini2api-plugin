@@ -315,10 +315,52 @@ describe("主动同步：目标账号", () => {
     assert.ok(logs(fake).some((m) => m.startsWith("Sync skipped") && m.includes("acc0, acc1")));
   });
 
-  test("绑定账号但 PSID 对不上：仍推给绑定账号，并记一条提示", async (t) => {
-    const { fake, bg } = await setup(t, { local: { accountId: "acc0" }, accounts: [acct({ psid: masked(OTHER_PSID) })] });
-    fireAlarm(fake);
+  test("绑定账号状态正常但 PSID 对不上（本浏览器换登了别的谷歌账号）：不覆盖它，同一原因只记一条", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" }, accounts: [acct({ psid: masked(OTHER_PSID), keepalive_mode: "browser" })] });
+    cookieEvent(fake);
+    t.mock.timers.tick(10_000);
     await bg.whenIdle();
+    for (let i = 0; i < 2; i++) {
+      t.mock.timers.tick(60_000);
+      fireAlarm(fake);
+      await bg.whenIdle();
+    }
+    assert.equal(puts(fake).length, 0, "不能把另一个账号的会话推上去顶掉中转站上正常的会话");
+    assert.deepEqual(fake.calls.reload, []);
+    const skips = logs(fake).filter((m) => m.startsWith("Sync skipped") && m.includes("bound account acc0"));
+    assert.equal(skips.length, 1, logs(fake).join("\n"));
+    assert.ok(skips[0].includes(`PSID(${PSID.slice(0, 10)}…)`));
+    assert.deepEqual(fake.calls.missingI18n, []);
+  });
+
+  test("绑定账号已过期且 PSID 对不上：救火照绑定推并记提示，同一轮兜底补推不重复", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" }, accounts: [acct({ psid: masked(OTHER_PSID), status: "expired" })] });
+    fireAlarm(fake);
+    await settle(t, bg.whenIdle());
+    assert.deepEqual(fake.calls.reload, [1]);
+    assert.deepEqual(puts(fake).map((c) => c.path), ["/admin/accounts/acc0/cookies"]);
+    assert.ok(logs(fake).some((m) => m.startsWith("Note: local PSID differs from account acc0")));
+  });
+
+  test("绑定账号已过期且 PSID 对不上：cookie 变化也照绑定推（账号需要救）", async (t) => {
+    const { fake, bg } = await setup(t, {
+      local: { accountId: "acc0" },
+      accounts: [acct({ psid: masked(OTHER_PSID), status: "expired", keepalive_mode: "server" })],
+    });
+    cookieEvent(fake);
+    t.mock.timers.tick(10_000);
+    await bg.whenIdle();
+    assert.deepEqual(puts(fake).map((c) => c.path), ["/admin/accounts/acc0/cookies"]);
+    assert.deepEqual(fake.calls.reload, [], "主动同步不刷新标签页");
+    assert.ok(logs(fake).some((m) => m.startsWith("Note: local PSID differs from account acc0")));
+  });
+
+  test("强制刷新：绑定账号正常、PSID 对不上也照推（手动覆盖，跳过提示里指的就是它）", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" }, accounts: [acct({ psid: masked(OTHER_PSID), keepalive_mode: "browser" })] });
+    const replies = [];
+    fake.events.message.fns[0]({ type: "refresh-now" }, {}, (r) => replies.push(r));
+    await settle(t, bg.whenIdle());
+    assert.deepEqual(replies, [{ ok: true }]);
     assert.deepEqual(puts(fake).map((c) => c.path), ["/admin/accounts/acc0/cookies"]);
     assert.ok(logs(fake).some((m) => m.startsWith("Note: local PSID differs from account acc0")));
   });
