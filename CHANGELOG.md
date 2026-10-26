@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.3.0
+
+- **主动同步**：后台顶层注册 `chrome.cookies.onChanged`，浏览器轮换 `__Secure-1PSIDTS` / `__Secure-1PSID` 后防抖约 10 秒读取 Cookie（**不刷新标签页**），推给绑定账号（未绑定按 PSID 匹配，匹配不到 / 匹配到多个就跳过，同一原因只记一条日志）；只在 Cookie 指纹与上次成功推送不同时推（SHA-256 截断，不另存 Cookie 原值），同一账号至少间隔 60 秒；每次定时轮询兜底补推，防止 service worker 在防抖期间被回收而漏推
+- **is_healthy 兼容**：`status == "expired"` 或 `is_healthy === false` 都按要救处理（gemini2api v1.6.41～v1.6.43 对谷歌会话已失效的账号仍报 `active`）；徽章计数、日志、侧边栏同口径，新增状态文案「会话失效」；已禁用的账号不救也不推
+- **请求头**：`PUT /admin/accounts/{id}/cookies` 与 `POST /admin/reload-cookies` 带 `X-Gemini2API-Keepalive: gemini2api-plugin/<版本>`；**需要 gemini2api ≥ v1.6.44** 才会据此把账号标为浏览器保活、停掉服务端轮换（旧版忽略此头，主动同步照常，但双方仍会各自轮换）
+- 救火提交同样记录指纹，兜底补推不会重复推同一份 Cookie；轮询 / 主动同步 / 强制刷新串行执行；后台事件回调补齐 Promise 异常兜底（强制刷新、清空日志出错也会回复侧边栏）
+- 纯逻辑抽到 `sync.js`，新增 `tests/`（Node 自带测试：`node --test tests/`，需 Node ≥ 22）
+
 ## v1.2.3
 
 - **文档工具移出插件仓库**：删除 `gen_docs.py`、`doc-templates/`（维护者本地使用 `gemini2api-plugin-docs/` 目录，不推送 GitHub）
