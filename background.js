@@ -2,6 +2,7 @@
 import { getConfig, fetchStatus, submitCookies, checkAccount } from "./api.js";
 import { readGeminiCookies, isSameAccount } from "./cookies.js";
 import { t, formatLogTime, accountStatusText } from "./i18n.js";
+import { needsRefresh, displayStatus } from "./sync.js";
 
 const ALARM_NAME = "gemini-cookie-poll";
 const LOG_KEY = "actionLog";
@@ -84,7 +85,9 @@ async function handleExpiredAccount(cfg, account, localPsid, localPsidts) {
     await log(t("logAccountCooldown", accountId), "info");
     return;
   }
-  await log(t("logAccountExpiredSubmit", accountId), "warn");
+  // 中转站仍报 active 但 is_healthy=false 的账号，日志写「会话失效」而不是「已过期」
+  const sessionInvalid = displayStatus(account) === "session_invalid";
+  await log(t(sessionInvalid ? "logAccountSessionInvalidSubmit" : "logAccountExpiredSubmit", accountId), "warn");
 
   const sub = await submitCookies(cfg, accountId, localPsid, localPsidts);
   if (sub.ok) {
@@ -134,7 +137,8 @@ async function _pollOnceInner() {
   let accounts = st.accounts;
   if (cfg.accountId) accounts = accounts.filter((a) => a.id === cfg.accountId);
 
-  const expired = accounts.filter((a) => a.status === "expired");
+  // 要救的账号：expired，或仍报 active 但 is_healthy === false（兼容 gemini2api 1.6.41～1.6.43）
+  const expired = accounts.filter(needsRefresh);
   const activeCount = accounts.filter((a) => a.status === "active").length;
 
   if (expired.length) {

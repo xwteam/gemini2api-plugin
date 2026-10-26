@@ -2,6 +2,7 @@
 import { getConfig, fetchStatus } from "./api.js";
 import { readGeminiCookies, isSameAccount, maskCookie, COOKIE_PSID, COOKIE_PSIDTS } from "./cookies.js";
 import { t, localizePage, accountStatusText, escapeHtml } from "./i18n.js";
+import { displayStatus } from "./sync.js";
 
 const $ = (id) => document.getElementById(id);
 let showFullCookie = false;
@@ -34,7 +35,8 @@ async function renderAccounts(silent = false) {
     return;
   }
   box.innerHTML = list.map((a) => {
-    const { cls, text: label } = statusLabel(a.status, a.cooling_down);
+    // displayStatus：仍报 active 但 is_healthy === false 时显示「会话失效」（红色）
+    const { cls, text: label } = statusLabel(displayStatus(a), a.cooling_down);
     const id = escapeHtml(a.id);
     const ck = a.psid ? `<div class="cookie">PSID ${escapeHtml(maskCookie(a.psid, t("cookieEmpty")))}</div>` : "";
     return `<div class="acct"><div><b>${id}</b>${ck}</div><span class="badge ${cls}">${escapeHtml(label)}</span></div>`;
