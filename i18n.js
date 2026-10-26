@@ -19,8 +19,13 @@ export function t(key, ...subs) {
   return chrome.i18n.getMessage(key, subs.length ? escapeSubs(subs) : subs);
 }
 
-/** 账号状态文案（popup 徽章 + background 日志共用） */
+/**
+ * 账号状态文案（popup 徽章 + background 日志共用）。
+ * status 可以是 sync.js displayStatus() 派生的 "session_invalid"（中转站仍报 active 但
+ * is_healthy === false）——它是要救的状态，优先于「冷却中」显示。
+ */
 export function accountStatusText(status, coolingDown = false) {
+  if (status === "session_invalid") return t("statusSessionInvalid");
   if (coolingDown) return t("statusCoolingDown");
   switch (status) {
     case "active": return t("statusActive");

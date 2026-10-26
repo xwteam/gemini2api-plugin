@@ -95,6 +95,9 @@
   "statusUnknown": {
     "message": "알 수 없음"
   },
+  "statusSessionInvalid": {
+    "message": "세션 무효"
+  },
   "statusRecovered": {
     "message": "복구됨(활성)"
   },
@@ -347,6 +350,14 @@
       }
     }
   },
+  "logAccountSessionInvalidSubmit": {
+    "message": "계정 $1 세션 무효(중계는 활성으로 보고)·로컬 일치 — 새 Cookie 제출 중…",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
   "logCookieSubmitted": {
     "message": "계정 $1 — 새 Cookie 제출됨($2)",
     "placeholders": {
@@ -441,7 +452,7 @@
     }
   },
   "logNoAccountIdNoMatch": {
-    "message": "계정 ID 미지정·로컬 PSID($1…)가 만료 계정과 불일치 — 사이드 패널에서 계정 ID 설정",
+    "message": "계정 ID 미지정·로컬 PSID($1…)가 만료/세션 무효 계정과 불일치 — 사이드 패널에서 계정 ID 설정",
     "placeholders": {
       "1": {
         "content": "$1"
@@ -491,6 +502,83 @@
         "content": "$1"
       }
     }
+  },
+  "logSyncPushed": {
+    "message": "계정 $1 능동 동기화: 브라우저 Cookie 갱신분을 중계에 제출함($2, $3)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      },
+      "3": {
+        "content": "$3"
+      }
+    }
+  },
+  "logSyncPushFail": {
+    "message": "계정 $1 능동 동기화 실패: $2 — 잠시 후 자동 재시도",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSyncNoLocalCookie": {
+    "message": "능동 동기화 건너뜀: 로컬 PSID/PSIDTS 없음 — Gemini 미로그인"
+  },
+  "logSyncNoMatch": {
+    "message": "능동 동기화 건너뜀: 계정 ID 미지정·로컬 PSID($1…)가 어떤 중계 계정과도 불일치 — 사이드 패널에서 계정 ID 설정",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncAmbiguous": {
+    "message": "능동 동기화 건너뜀: 로컬 PSID($1…)가 여러 계정($2)과 일치 — 사이드 패널에서 계정 ID 설정",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSyncBoundMissing": {
+    "message": "능동 동기화 건너뜀: 중계에 계정 $1 없음 — 사이드 패널 바인딩 확인",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncDisabled": {
+    "message": "능동 동기화 건너뜀: 계정 $1 비활성",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncStatusFail": {
+    "message": "능동 동기화: 중계 상태 조회 실패: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncTriggerCookie": {
+    "message": "Cookie 변경 감지"
+  },
+  "syncTriggerPoll": {
+    "message": "주기 폴링 보충"
   },
   "cookieEmpty": {
     "message": "(비어 있음)"

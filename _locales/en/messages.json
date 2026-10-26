@@ -95,6 +95,9 @@
   "statusUnknown": {
     "message": "Unknown"
   },
+  "statusSessionInvalid": {
+    "message": "Session invalid"
+  },
   "statusRecovered": {
     "message": "Recovered (active)"
   },
@@ -347,6 +350,14 @@
       }
     }
   },
+  "logAccountSessionInvalidSubmit": {
+    "message": "Account $1 session invalid (relay still reports active) and matches local — submitting new cookies…",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
   "logCookieSubmitted": {
     "message": "Account $1 — new cookies submitted ($2)",
     "placeholders": {
@@ -441,7 +452,7 @@
     }
   },
   "logNoAccountIdNoMatch": {
-    "message": "No account ID and local PSID($1…) matches no expired account — bind an account ID in the side panel",
+    "message": "No account ID and local PSID($1…) matches no expired/session-invalid account — bind an account ID in the side panel",
     "placeholders": {
       "1": {
         "content": "$1"
@@ -491,6 +502,83 @@
         "content": "$1"
       }
     }
+  },
+  "logSyncPushed": {
+    "message": "Account $1 synced: browser cookies changed and were pushed to the relay ($2, $3)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      },
+      "3": {
+        "content": "$3"
+      }
+    }
+  },
+  "logSyncPushFail": {
+    "message": "Account $1 sync failed: $2 — will retry automatically",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSyncNoLocalCookie": {
+    "message": "Sync skipped: no local PSID/PSIDTS — not signed in to Gemini"
+  },
+  "logSyncNoMatch": {
+    "message": "Sync skipped: no account ID and local PSID($1…) matches no relay account — bind an account ID in the side panel",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncAmbiguous": {
+    "message": "Sync skipped: local PSID($1…) matches several accounts ($2) — bind an account ID in the side panel",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSyncBoundMissing": {
+    "message": "Sync skipped: relay has no account $1 — check the side panel binding",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncDisabled": {
+    "message": "Sync skipped: account $1 is disabled",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncStatusFail": {
+    "message": "Sync: relay status query failed: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncTriggerCookie": {
+    "message": "cookie change"
+  },
+  "syncTriggerPoll": {
+    "message": "poll catch-up"
   },
   "cookieEmpty": {
     "message": "(empty)"

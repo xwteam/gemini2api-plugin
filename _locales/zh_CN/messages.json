@@ -95,6 +95,9 @@
   "statusUnknown": {
     "message": "未知"
   },
+  "statusSessionInvalid": {
+    "message": "会话失效"
+  },
   "statusRecovered": {
     "message": "已恢复活动"
   },
@@ -347,6 +350,14 @@
       }
     }
   },
+  "logAccountSessionInvalidSubmit": {
+    "message": "账号 $1 会话失效（中转站仍报活动）且与本地账号匹配，提交新 Cookie…",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
   "logCookieSubmitted": {
     "message": "账号 $1 新 Cookie 已提交（$2）",
     "placeholders": {
@@ -441,7 +452,7 @@
     }
   },
   "logNoAccountIdNoMatch": {
-    "message": "未指定账号 ID，且本地 PSID($1…)与所有过期账号都不匹配，无法判断该提交给谁。请在侧边栏填写本浏览器负责的账号 ID",
+    "message": "未指定账号 ID，且本地 PSID($1…)与所有过期/会话失效的账号都不匹配，无法判断该提交给谁。请在侧边栏填写本浏览器负责的账号 ID",
     "placeholders": {
       "1": {
         "content": "$1"
@@ -491,6 +502,83 @@
         "content": "$1"
       }
     }
+  },
+  "logSyncPushed": {
+    "message": "账号 $1 主动同步：浏览器 Cookie 有更新，已推送到中转站（$2，$3）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      },
+      "3": {
+        "content": "$3"
+      }
+    }
+  },
+  "logSyncPushFail": {
+    "message": "账号 $1 主动同步失败：$2，稍后自动重试",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSyncNoLocalCookie": {
+    "message": "主动同步跳过：读不到本地 PSID/PSIDTS，本浏览器未登录 Gemini"
+  },
+  "logSyncNoMatch": {
+    "message": "主动同步跳过：未指定账号 ID，且本地 PSID($1…)与中转站所有账号都不匹配，请在侧边栏填写账号 ID",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncAmbiguous": {
+    "message": "主动同步跳过：本地 PSID($1…)同时匹配多个账号（$2），无法判断推给谁，请在侧边栏填写账号 ID",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSyncBoundMissing": {
+    "message": "主动同步跳过：中转站没有账号 $1，请检查侧边栏绑定",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncDisabled": {
+    "message": "主动同步跳过：账号 $1 已禁用",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncStatusFail": {
+    "message": "主动同步：查询中转站状态失败：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncTriggerCookie": {
+    "message": "Cookie 变化触发"
+  },
+  "syncTriggerPoll": {
+    "message": "定时轮询补推"
   },
   "cookieEmpty": {
     "message": "（空）"

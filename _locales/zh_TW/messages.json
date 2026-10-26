@@ -95,6 +95,9 @@
   "statusUnknown": {
     "message": "未知"
   },
+  "statusSessionInvalid": {
+    "message": "工作階段失效"
+  },
   "statusRecovered": {
     "message": "已恢復活動"
   },
@@ -347,6 +350,14 @@
       }
     }
   },
+  "logAccountSessionInvalidSubmit": {
+    "message": "帳號 $1 工作階段失效（中轉站仍回報活動）且與本機帳號相符，提交新 Cookie…",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
   "logCookieSubmitted": {
     "message": "帳號 $1 新 Cookie 已提交（$2）",
     "placeholders": {
@@ -441,7 +452,7 @@
     }
   },
   "logNoAccountIdNoMatch": {
-    "message": "未指定帳號 ID，且本機 PSID($1…)與所有過期帳號都不相符，無法判斷該提交給誰。請在側邊欄填寫本瀏覽器負責的帳號 ID",
+    "message": "未指定帳號 ID，且本機 PSID($1…)與所有過期/工作階段失效的帳號都不相符，無法判斷該提交給誰。請在側邊欄填寫本瀏覽器負責的帳號 ID",
     "placeholders": {
       "1": {
         "content": "$1"
@@ -491,6 +502,83 @@
         "content": "$1"
       }
     }
+  },
+  "logSyncPushed": {
+    "message": "帳號 $1 主動同步：瀏覽器 Cookie 有更新，已推送到中轉站（$2，$3）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      },
+      "3": {
+        "content": "$3"
+      }
+    }
+  },
+  "logSyncPushFail": {
+    "message": "帳號 $1 主動同步失敗：$2，稍後自動重試",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSyncNoLocalCookie": {
+    "message": "主動同步跳過：讀不到本機 PSID/PSIDTS，本瀏覽器未登入 Gemini"
+  },
+  "logSyncNoMatch": {
+    "message": "主動同步跳過：未指定帳號 ID，且本機 PSID($1…)與中轉站所有帳號都不相符，請在側邊欄填寫帳號 ID",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncAmbiguous": {
+    "message": "主動同步跳過：本機 PSID($1…)同時符合多個帳號（$2），無法判斷推給誰，請在側邊欄填寫帳號 ID",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSyncBoundMissing": {
+    "message": "主動同步跳過：中轉站沒有帳號 $1，請檢查側邊欄綁定",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncDisabled": {
+    "message": "主動同步跳過：帳號 $1 已停用",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncStatusFail": {
+    "message": "主動同步：查詢中轉站狀態失敗：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncTriggerCookie": {
+    "message": "Cookie 變化觸發"
+  },
+  "syncTriggerPoll": {
+    "message": "定時輪詢補推"
   },
   "cookieEmpty": {
     "message": "（空）"

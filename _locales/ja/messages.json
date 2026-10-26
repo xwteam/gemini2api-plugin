@@ -95,6 +95,9 @@
   "statusUnknown": {
     "message": "不明"
   },
+  "statusSessionInvalid": {
+    "message": "セッション無効"
+  },
   "statusRecovered": {
     "message": "復旧（有効）"
   },
@@ -347,6 +350,14 @@
       }
     }
   },
+  "logAccountSessionInvalidSubmit": {
+    "message": "アカウント $1 セッション無効（中継は有効と報告）・ローカル一致 — 新 Cookie を送信中…",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
   "logCookieSubmitted": {
     "message": "アカウント $1 — 新 Cookie 送信済み（$2）",
     "placeholders": {
@@ -441,7 +452,7 @@
     }
   },
   "logNoAccountIdNoMatch": {
-    "message": "アカウント ID 未指定でローカル PSID($1…)が期限切れアカウントと不一致 — サイドパネルでアカウント ID を設定",
+    "message": "アカウント ID 未指定でローカル PSID($1…)が期限切れ/セッション無効のアカウントと不一致 — サイドパネルでアカウント ID を設定",
     "placeholders": {
       "1": {
         "content": "$1"
@@ -491,6 +502,83 @@
         "content": "$1"
       }
     }
+  },
+  "logSyncPushed": {
+    "message": "アカウント $1 アクティブ同期：ブラウザ Cookie の更新を中継に送信（$2、$3）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      },
+      "3": {
+        "content": "$3"
+      }
+    }
+  },
+  "logSyncPushFail": {
+    "message": "アカウント $1 アクティブ同期失敗：$2 — 後で自動再試行",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSyncNoLocalCookie": {
+    "message": "アクティブ同期スキップ：ローカル PSID/PSIDTS 未取得 — Gemini 未ログイン"
+  },
+  "logSyncNoMatch": {
+    "message": "アクティブ同期スキップ：アカウント ID 未指定でローカル PSID($1…)がどの中継アカウントとも不一致 — サイドパネルでアカウント ID を設定",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncAmbiguous": {
+    "message": "アクティブ同期スキップ：ローカル PSID($1…)が複数アカウント（$2）に一致 — サイドパネルでアカウント ID を設定",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "logSyncBoundMissing": {
+    "message": "アクティブ同期スキップ：中継にアカウント $1 がありません — サイドパネルの紐付けを確認",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncDisabled": {
+    "message": "アクティブ同期スキップ：アカウント $1 は無効",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "logSyncStatusFail": {
+    "message": "アクティブ同期：中継状態の照会失敗：$1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncTriggerCookie": {
+    "message": "Cookie 変更検知"
+  },
+  "syncTriggerPoll": {
+    "message": "定期ポーリングで補完"
   },
   "cookieEmpty": {
     "message": "（空）"
