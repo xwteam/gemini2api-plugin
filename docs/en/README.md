@@ -2,7 +2,7 @@
 
 <h1>Gemini2API Plugin</h1>
 <h3>Gemini Cookie Keep-Alive Browser Extension</h3>
-<p>Polls your relay server for account health; when expired, refreshes Gemini in your local browser (residential IP) and submits fresh cookies to help break the ~2-hour limit.</p>
+<p>Pushes cookies to your relay as soon as your browser rotates them; when an account expires or its session goes invalid, refreshes Gemini in your local browser (residential IP) and submits fresh cookies to help break the ~2-hour limit.</p>
 
 <p>
   <img src="https://img.shields.io/badge/Manifest-V3-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="MV3">
@@ -41,28 +41,38 @@
 > Not affiliated with Google. It reads Gemini login cookies via a browser extension, which may violate Google's Terms of Service. Use at your own risk. The author is not responsible for account penalties or data loss.
 
 > [!IMPORTANT]
-> **Does not guarantee breaking the 2-hour limit 100% of the time.** It minimizes interference with Google sessions (passive mode, refresh only on expiry), but your local browser and relay share the same account session. Results vary — share your findings via [Issue](https://github.com/xwteam/gemini2api-plugin/issues).
+> **Does not guarantee breaking the 2-hour limit 100% of the time.** Your local browser and relay share the same account session: since v1.3.0 the extension forwards cookies the browser rotates to the relay right away, and with **gemini2api ≥ v1.6.44** the relay stops rotating those accounts itself, so the two sides no longer knock each other out (relays on v1.6.41–v1.6.43 still rotate on their own). Results vary — share your findings via [Issue](https://github.com/xwteam/gemini2api-plugin/issues).
 
 ---
 
 ## 💡 How It Works
 
-Relay servers on datacenter IPs often see Google sessions expire in ~2 hours. **Your local browser runs on a residential IP, so the same account can stay alive longer.** This extension bridges the gap:
+Relay servers on datacenter IPs often see Google sessions expire in ~2 hours. **Your local browser runs on a residential IP, so the same account can stay alive longer.** This extension bridges the gap along two paths:
 
 ```
-Every N seconds → GET /admin/status to check relay account health
-  ├─ active   → do nothing
-  └─ expired  → refresh an open gemini.google.com tab locally
-               → chrome.cookies reads new __Secure-1PSID / __Secure-1PSIDTS
-               → PUT /admin/accounts/{id}/cookies to submit to relay
-               → next poll verifies active again
+① Active sync (v1.3.0): the browser rotated its cookies → forward them to the relay
+chrome.cookies.onChanged sees __Secure-1PSIDTS / __Secure-1PSID change
+  → wait ~10s to coalesce bursts → read current cookies (no tab refresh)
+  → target: the Account ID bound in the sidebar; if none, match by PSID
+  → differs from the last successful push and ≥ 60s since the last push
+       → PUT /admin/accounts/{id}/cookies
+  (every scheduled poll re-checks too, in case the service worker was suspended mid-wait)
+
+② Rescue: every N seconds → GET /admin/status to check relay account health
+  ├─ active and healthy → do nothing
+  └─ expired, or is_healthy=false (session invalid)
+        → refresh an open gemini.google.com tab locally
+        → chrome.cookies reads new __Secure-1PSID / __Secure-1PSIDTS
+        → PUT /admin/accounts/{id}/cookies to submit to relay
+        → next poll verifies active again
 ```
 
-Normally the extension only polls silently. **It refreshes once only when expiry is detected**, with a cooldown to avoid repeated refreshes and minimize session disruption.
+The extension never rotates cookies itself: active sync only hands over what the browser already rotated. Otherwise it leaves the browser alone — **it refreshes the tab once only when expiry or an invalid session is detected**, with a cooldown to avoid repeated refreshes. Both paths send the header `X-Gemini2API-Keepalive: gemini2api-plugin/<version>`; **gemini2api ≥ v1.6.44** then marks the account as browser-kept-alive and stops rotating it server-side, so the browser and relay stop invalidating each other's PSIDTS. Older relays ignore the header.
 
 ## 🌟 Core Features
 
-- **Passive response**: zero interference until an account expires; does not compete for cookie rotation
+- **Active sync (v1.3.0)**: pushes cookies to the relay ~10s after the browser rotates them — only when they changed, at most once per 60s per account, with a catch-up on every poll; the extension itself never rotates cookies or reloads pages for this
+- **Rescue**: when an account expires, or the relay still says active but `is_healthy=false` (session invalid), refreshes the tab and submits new cookies; otherwise it leaves the browser alone
 - **HttpOnly cookie access**: uses `chrome.cookies` to read `__Secure-` auth cookies that page JS cannot
 - **Silent refresh**: auto-refreshes open Gemini tabs — no manual steps
 - **Per-account submit + anti-mix-up**: set Account ID to push cookies directly (works even when cookie values change); without ID, matches by local PSID to avoid cross-account submission
@@ -70,7 +80,7 @@ Normally the extension only polls silently. **It refreshes once only when expiry
 - **Pinned sidebar**: fixed right-side panel stays open for long monitoring sessions and action logs
 - **Multilingual UI**: extension UI and logs automatically follow Chrome browser language (Simplified & Traditional Chinese, English, Japanese, Korean), aligned with documentation locales
 - **Zero dependencies**: vanilla JavaScript + Manifest V3, no build step, no third-party libs
-- **Privacy**: API Key and cookies stay local and are sent only to your configured relay
+- **Privacy**: API Key and cookies stay local and are sent only to your configured relay; sync records keep only a hash fingerprint of the cookies, never the values
 
 ## 📦 Installation
 
@@ -83,7 +93,7 @@ Normally the extension only polls silently. **It refreshes once only when expiry
 4. Click **Load unpacked** and select this project root (the folder containing `manifest.json`)
 
 > [!IMPORTANT]
-> Load the repo root containing `manifest.json`. This repo contains **only the extension runtime and static docs** (`docs/`) — no doc-generation scripts.
+> Load the repo root containing `manifest.json`. This repo contains **only the extension runtime, static docs** (`docs/`) **and unit tests** (`tests/`, never loaded by the extension; developers can run `node --test tests/` with Node ≥ 22) — no doc-generation scripts.
 
 5. Click the extension icon → open the sidebar:
    - At the top, **bind the Account ID** this browser owns (e.g. `account-0`)
@@ -106,12 +116,15 @@ Click **Bind**. If empty, PSID auto-match is used (less reliable for multi-accou
 | **Relay URL** | Your Gemini2API address, e.g. `http://1.2.3.4:5918` |
 | **API Key** | Relay `sk-` key; if gemini2api ≥ v1.6.16 uses separate `ADMIN_API_KEY`, enter the **admin key** here |
 | **Poll interval** | How often to check status; default 60s, minimum 30s |
-| **Refresh cooldown** | After refresh, skip same account for this long; default 120s |
+| **Refresh cooldown** | During rescue, skip the same account for this long after a refresh; default 120s (active sync has its own fixed 60s minimum interval) |
 
 Click **Test connection**, then **Save** (browser will request host permission for your relay URL — allow it).
 
 > [!NOTE]
-> **gemini2api compatibility**: From v1.6.16, `/admin/status` returns masked PSID. Without Account ID, the extension matches first/last PSID fragments. **Always bind Account ID** for reliability.
+> **gemini2api compatibility**:
+> - From v1.6.16, `/admin/status` returns masked PSID. Without Account ID, the extension matches first/last PSID fragments. **Always bind Account ID** for reliability.
+> - v1.6.41–v1.6.43 keep reporting `active` for accounts whose Google session is dead and only set `is_healthy` to false; since v1.3.0 the extension rescues those as "session invalid".
+> - **From v1.6.44**, accounts the extension has pushed cookies to are marked as browser-kept-alive (`keepalive_mode` is `browser` in `/admin/status`) and the relay stops rotating them. To hand an account back to server-side rotation (e.g. you switched to cookies from an incognito window), first disable this extension in that browser, then update the cookies manually in the panel — otherwise the next sync marks it browser-kept-alive again.
 
 > [!IMPORTANT]
 > **One browser instance can keep alive only one account.** The browser has a single cookie jar for `gemini.google.com`; the extension always reads the currently logged-in account. Therefore:
@@ -139,25 +152,25 @@ Each instance: same **Relay settings** (URL + API Key); **different Account ID**
 
 Click the toolbar icon to open a **fixed right sidebar** (stays visible for monitoring).
 
-- **Sidebar**: bind **Account ID** at top; account active/expired status, masked PSID, action log; **Check now** / **Force refresh & submit**; **Relay settings** (top right) for connection config.
+- **Sidebar**: bind **Account ID** at top; account active / expired / session-invalid status, masked PSID, action log (including active-sync entries); **Check now** / **Force refresh & submit**; **Relay settings** (top right) for connection config.
 - **Local cookies**: shows `__Secure-1PSID` / `__Secure-1PSIDTS` from this browser (masked by default; **👁 Show full** for full values) and whether they match relay accounts.
 - **Badge**:
   - Blue number = active accounts
-  - Red number = expired accounts
+  - Red number = accounts expired or with an invalid session (need rescue)
   - `!` = relay connection failed
 
 ## 🔐 Permissions
 
 | Permission | Purpose |
 |------------|---------|
-| `cookies` + `*://*.google.com/*` | Read Gemini HttpOnly auth cookies |
+| `cookies` + `*://*.google.com/*` | Read Gemini HttpOnly auth cookies and watch them change for active sync |
 | `tabs` | Find and refresh gemini.google.com tabs |
-| `storage` | Save settings and action logs |
+| `storage` | Save settings, action logs and sync records (hash fingerprints only) |
 | `alarms` | Scheduled polling |
 | Relay host permission | Requested dynamically when you save settings |
 
 > [!NOTE]
-> **Privacy**: API Key and cookies are stored only locally and sent only to your configured relay — never to third parties.
+> **Privacy**: API Key and cookies are stored only locally and sent only to your configured relay — never to third parties. Active sync in v1.3.0 adds no permissions; sync records store only a truncated SHA-256 fingerprint, never the cookie values.
 
 ## ❓ FAQ
 
@@ -170,8 +183,14 @@ A: This browser is not logged into Gemini, or logged into a different account th
 **Q: Status stays expired after submit?**
 A: Google may have revoked the main session (PSID cannot be recovered by refresh). Log in again for fresh cookies.
 
+**Q: Why does the extension submit cookies when nothing has expired?**
+A: That is active sync (v1.3.0). Your browser and the relay share one Google session; once the browser rotates PSIDTS, the relay's copy soon stops working, so the extension forwards the new value (only when it changed, at most once per 60s per account, without refreshing the tab). With gemini2api ≥ v1.6.44 the relay then stops rotating that account itself, so the two sides stop knocking each other out.
+
+**Q: What does "Session invalid" in the sidebar mean?**
+A: The relay still reports `active`, but `is_healthy` is false — the Google session is actually dead (gemini2api v1.6.41–v1.6.43 report it this way). The extension treats it like "Expired": it refreshes the tab and submits new cookies.
+
 **Q: Will this get my account banned?**
-A: Passive mode with very low frequency — still non-official; assess risk yourself.
+A: The extension makes no extra requests to Google: active sync only forwards cookies the browser already has, and only a rescue refreshes the tab — very low frequency. Still non-official; assess the risk yourself.
 
 **Q: Can account A's cookies be submitted to account B?**
 A: No. Local PSID is verified against the target account before submit. Still use **one account per browser** (see Multi-Account).
@@ -185,8 +204,8 @@ A: **No.** `_locales` is Chrome’s **official** i18n folder name (required for 
 ## ⚠ Known Limitations
 
 - **One browser = one account**: multiple accounts need separate browser environments.
-- **No guarantee on 2-hour limit**: local browser and relay share one Google session; PSIDTS rotation may still interact. Passive design minimizes risk — observe in practice.
-- **Requires browser to stay open**: closing browser or Gemini tab stops keep-alive — trade-off of not refreshing aggressively.
+- **No guarantee on 2-hour limit**: local browser and relay share one Google session. Relays on gemini2api v1.6.41–v1.6.43 also rotate PSIDTS on a timer, so the two sides may knock each other out; only v1.6.44+ stops server-side rotation for accounts this extension pushes. Observe in practice.
+- **Requires browser to stay open**: closing browser or Gemini tab stops keep-alive (active sync also relies on an open Gemini tab so the browser keeps rotating cookies) — trade-off of not refreshing aggressively.
 
 ## 📄 License
 
