@@ -98,6 +98,9 @@
   "statusSessionInvalid": {
     "message": "Session invalid"
   },
+  "statusUnhealthy": {
+    "message": "Unhealthy"
+  },
   "statusRecovered": {
     "message": "Recovered (active)"
   },

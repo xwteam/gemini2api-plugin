@@ -11,6 +11,7 @@ const subTokens = (msg) => [...new Set(msg.match(/\$\d/g) || [])].sort();
 
 export const V130_KEYS = [
   "statusSessionInvalid",
+  "statusUnhealthy",
   "logAccountSessionInvalidSubmit",
   "logSyncPushed",
   "logSyncPushFail",

@@ -98,6 +98,9 @@
   "statusSessionInvalid": {
     "message": "工作階段失效"
   },
+  "statusUnhealthy": {
+    "message": "不健康"
+  },
   "statusRecovered": {
     "message": "已恢復活動"
   },

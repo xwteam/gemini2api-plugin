@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import {
   needsRefresh,
   displayStatus,
+  relayReportsSessionExpiry,
   isAuthCookieChange,
   pickTarget,
   shouldPush,
@@ -20,6 +21,8 @@ const OTHER_PSID = "g.a000ZZZZyyyyXXXXwwwwVVVVuuuuTTTTssssRRRRqqqqPPPP9876";
 const PSIDTS = "sidts-CjEB_first_value_xxxxxxxxxxxxxxxx";
 const masked = (v) => `${v.slice(0, 4)}****${v.slice(-4)}`;
 const acct = (over = {}) => ({ id: "acc0", psid: masked(PSID), status: "active", is_healthy: true, ...over });
+// gemini2api ≥ 1.6.44 的账号：多一个 keepalive_mode 字段（与「打回登录页 → expired」同一版加入）
+const newAcct = (over = {}) => acct({ keepalive_mode: "browser", ...over });
 
 describe("needsRefresh", () => {
   test("status expired → 要救", () => {
@@ -28,6 +31,18 @@ describe("needsRefresh", () => {
   });
   test("status 仍是 active 但 is_healthy === false → 要救（gemini2api 1.6.41～1.6.43）", () => {
     assert.equal(needsRefresh(acct({ status: "active", is_healthy: false })), true);
+  });
+  test("≥ 1.6.44（带 keepalive_mode）：active + is_healthy=false 是中转站自身不健康，不救", () => {
+    // 1.6.44 已把「打回登录页」直接报成 expired；剩下的不健康是网络抖动 / 5xx / 刚启动，换 Cookie 没用
+    assert.equal(needsRefresh(newAcct({ is_healthy: false })), false);
+    assert.equal(needsRefresh(newAcct({ is_healthy: false, keepalive_mode: "server" })), false);
+    assert.equal(needsRefresh(newAcct({ is_healthy: false, keepalive_mode: null })), false);
+  });
+  test("≥ 1.6.44：expired 照救，健康的 active 不救", () => {
+    assert.equal(needsRefresh(newAcct({ status: "expired", is_healthy: false })), true);
+    assert.equal(needsRefresh(newAcct({ status: "expired", is_healthy: true })), true);
+    assert.equal(needsRefresh(newAcct()), false);
+    assert.equal(needsRefresh(newAcct({ status: "disabled", is_healthy: false })), false);
   });
   test("active 且健康 → 不救", () => {
     assert.equal(needsRefresh(acct()), false);
@@ -54,9 +69,27 @@ describe("needsRefresh", () => {
   });
 });
 
+describe("relayReportsSessionExpiry", () => {
+  test("账号带 keepalive_mode 字段 → 新版中转站（≥ 1.6.44）", () => {
+    assert.equal(relayReportsSessionExpiry(newAcct()), true);
+    assert.equal(relayReportsSessionExpiry(newAcct({ keepalive_mode: "server" })), true);
+    assert.equal(relayReportsSessionExpiry(newAcct({ keepalive_mode: null })), true);
+  });
+  test("没有这个字段 → 旧版中转站；空值 → false", () => {
+    assert.equal(relayReportsSessionExpiry(acct()), false);
+    assert.equal(relayReportsSessionExpiry(null), false);
+    assert.equal(relayReportsSessionExpiry(undefined), false);
+  });
+});
+
 describe("displayStatus", () => {
-  test("active + is_healthy false → session_invalid（会话失效）", () => {
+  test("旧版中转站：active + is_healthy false → session_invalid（会话失效）", () => {
     assert.equal(displayStatus(acct({ is_healthy: false })), "session_invalid");
+  });
+  test("≥ 1.6.44：active + is_healthy false → unhealthy（中转站不健康，不是会话失效）", () => {
+    assert.equal(displayStatus(newAcct({ is_healthy: false })), "unhealthy");
+    assert.equal(displayStatus(newAcct()), "active");
+    assert.equal(displayStatus(newAcct({ status: "expired", is_healthy: false })), "expired");
   });
   test("其余情况原样返回 status", () => {
     assert.equal(displayStatus(acct()), "active");

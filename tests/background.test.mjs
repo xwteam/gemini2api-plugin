@@ -2,6 +2,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { createFakeChrome, drainInstances, flush, loadBackground, settle } from "./helpers/fake-chrome.mjs";
+import { cookieFingerprint } from "../sync.js";
 
 const BASE = "http://relay.test:5918";
 const PSID = "g.a000AAAAbbbbCCCCddddEEEEffffGGGGhhhhIIIIjjjjKKKK1234";
@@ -10,6 +11,12 @@ const PSIDTS_1 = "sidts-CjEB_first_value_xxxxxxxxxxxxxxxx";
 const PSIDTS_2 = "sidts-CjEB_second_value_yyyyyyyyyyyyyyy";
 const masked = (v) => `${v.slice(0, 4)}****${v.slice(-4)}`;
 const acct = (over = {}) => ({ id: "acc0", psid: masked(PSID), status: "active", is_healthy: true, cooling_down: false, ...over });
+// gemini2api ≥ 1.6.44 的账号（多一个 keepalive_mode 字段）；不带它的 acct() 就是 1.6.41～1.6.43 这类旧中转站
+const newAcct = (over = {}) => acct({ keepalive_mode: "browser", ...over });
+/** 预置「上次成功推送的就是浏览器当前这份 cookie」，让兜底补推没有东西可推，只看救火本身 */
+async function syncedState(accountId = "acc0", psid = PSID, psidts = PSIDTS_1) {
+  return { [accountId]: { hash: await cookieFingerprint(psid, psidts), pushedAt: T0 - 3_600_000, triedAt: T0 - 3_600_000 } };
+}
 const T0 = 1_700_000_000_000;
 const RED = "#d93025";
 const BLUE = "#1a73e8";
@@ -102,6 +109,44 @@ describe("救火口径：expired 或 is_healthy === false", () => {
     assert.deepEqual(fake.calls.reload, []);
     assert.equal(last(fake.calls.badgeText), "2");
     assert.equal(last(fake.calls.badgeColor), BLUE);
+  });
+});
+
+describe("救火口径：gemini2api ≥ 1.6.44（账号带 keepalive_mode）", () => {
+  test("绑定账号仍报 active 但 is_healthy=false（网络抖动 / 5xx / 刚启动）：每轮都不刷新标签页、不提交，徽章蓝色", async (t) => {
+    const { fake, bg } = await setup(t, {
+      local: { accountId: "acc0", syncState: await syncedState() },
+      accounts: [newAcct({ is_healthy: false })],
+    });
+    for (let i = 0; i < 3; i++) {
+      await settle(t, bg.pollOnce());
+      t.mock.timers.tick(60_000);
+    }
+    assert.deepEqual(fake.calls.reload, [], "中转站自身不健康时刷新用户的标签页没有用");
+    assert.equal(puts(fake).length, 0);
+    assert.equal(last(fake.calls.badgeText), "1");
+    assert.equal(last(fake.calls.badgeColor), BLUE);
+    assert.ok(!logs(fake).some((m) => m.includes("session invalid")), logs(fake).join("\n"));
+  });
+
+  test("未绑定时别的浏览器负责的账号不健康：本浏览器不刷新标签页", async (t) => {
+    const { fake, bg } = await setup(t, {
+      local: { syncState: await syncedState() },
+      accounts: [newAcct({ id: "acc1", psid: masked(OTHER_PSID), is_healthy: false, keepalive_mode: "server" }), newAcct()],
+    });
+    await settle(t, bg.pollOnce());
+    assert.deepEqual(fake.calls.reload, []);
+    assert.equal(puts(fake).length, 0);
+    assert.equal(last(fake.calls.badgeColor), BLUE);
+  });
+
+  test("expired 照救（新版中转站对被打回登录页的账号直接报 expired）", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" }, accounts: [newAcct({ status: "expired", is_healthy: false })] });
+    await settle(t, bg.pollOnce());
+    assert.deepEqual(fake.calls.reload, [1]);
+    assert.equal(puts(fake).length, 1);
+    assert.equal(last(fake.calls.badgeColor), RED);
+    assert.ok(logs(fake).some((m) => m.includes("Account acc0 expired")));
   });
 });
 

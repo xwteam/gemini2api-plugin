@@ -98,6 +98,9 @@
   "statusSessionInvalid": {
     "message": "会话失效"
   },
+  "statusUnhealthy": {
+    "message": "不健康"
+  },
   "statusRecovered": {
     "message": "已恢复活动"
   },

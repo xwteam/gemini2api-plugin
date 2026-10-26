@@ -29,6 +29,12 @@ test("会话失效优先于冷却中显示", (tc) => {
   assert.equal(accountStatusText("session_invalid", true), "statusSessionInvalid");
 });
 
+test("unhealthy（≥ 1.6.44 仍报 active 但 is_healthy=false）→ statusUnhealthy；冷却中优先", (tc) => {
+  stubI18n(tc);
+  assert.equal(accountStatusText("unhealthy"), "statusUnhealthy");
+  assert.equal(accountStatusText("unhealthy", true), "statusCoolingDown");
+});
+
 test("原有状态文案不变", (tc) => {
   stubI18n(tc);
   assert.equal(accountStatusText("active"), "statusActive");

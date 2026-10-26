@@ -98,6 +98,9 @@
   "statusSessionInvalid": {
     "message": "세션 무효"
   },
+  "statusUnhealthy": {
+    "message": "비정상"
+  },
   "statusRecovered": {
     "message": "복구됨(활성)"
   },

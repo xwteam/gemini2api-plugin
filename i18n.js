@@ -21,8 +21,10 @@ export function t(key, ...subs) {
 
 /**
  * 账号状态文案（popup 徽章 + background 日志共用）。
- * status 可以是 sync.js displayStatus() 派生的 "session_invalid"（中转站仍报 active 但
- * is_healthy === false）——它是要救的状态，优先于「冷却中」显示。
+ * status 可以是 sync.js displayStatus() 派生的两种：
+ * - "session_invalid"：旧中转站（1.6.41～1.6.43）仍报 active 但 is_healthy === false——它是要救的
+ *   状态，优先于「冷却中」显示；
+ * - "unhealthy"：≥ 1.6.44 仍报 active 但 is_healthy === false，中转站自身不健康（不救）。
  */
 export function accountStatusText(status, coolingDown = false) {
   if (status === "session_invalid") return t("statusSessionInvalid");
@@ -32,6 +34,7 @@ export function accountStatusText(status, coolingDown = false) {
     case "expired": return t("statusExpired");
     case "disabled": return t("statusDisabled");
     case "refreshing": return t("statusRefreshing");
+    case "unhealthy": return t("statusUnhealthy");
     default: return status ? String(status) : t("statusUnknown");
   }
 }

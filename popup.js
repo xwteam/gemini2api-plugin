@@ -12,6 +12,7 @@ function statusLabel(status, coolingDown) {
   let cls = "expired";
   if (coolingDown || status === "expired" || status === "disabled") cls = "expired";
   else if (status === "active" || status === "refreshing") cls = "active";
+  else if (status === "unhealthy") cls = "unhealthy";
   return { cls, text };
 }
 
@@ -35,7 +36,8 @@ async function renderAccounts(silent = false) {
     return;
   }
   box.innerHTML = list.map((a) => {
-    // displayStatus：仍报 active 但 is_healthy === false 时显示「会话失效」（红色）
+    // displayStatus：仍报 active 但 is_healthy === false 时，旧中转站显示「会话失效」（红色），
+    // ≥ 1.6.44 显示「不健康」（橙色，中转站自身的问题，插件不救）
     const { cls, text: label } = statusLabel(displayStatus(a), a.cooling_down);
     const id = escapeHtml(a.id);
     const ck = a.psid ? `<div class="cookie">PSID ${escapeHtml(maskCookie(a.psid, t("cookieEmpty")))}</div>` : "";

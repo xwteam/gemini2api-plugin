@@ -34,7 +34,7 @@ function fakeDocument() {
 }
 
 let seq = 0;
-test("侧边栏：仍报 active 但 is_healthy=false 显示红色「会话失效」，其余状态文案不变", async (t) => {
+test("侧边栏：旧中转站仍报 active 但 is_healthy=false 显示红色「会话失效」，≥ 1.6.44 显示「不健康」，其余状态文案不变", async (t) => {
   t.mock.timers.enable({ apis: ["setInterval", "setTimeout"] }); // popup 有 15 秒的刷新 setInterval
   const fake = createFakeChrome({
     local: { baseUrl: "http://relay.test:5918", apiKey: "sk-test" },
@@ -44,6 +44,8 @@ test("侧边栏：仍报 active 但 is_healthy=false 显示红色「会话失效
         { id: "acc1", psid: "g.a0****5678", status: "active", is_healthy: true },
         { id: "acc2", psid: "g.a0****9999", status: "expired", is_healthy: false },
         { id: "acc3", psid: "g.a0****0000", status: "active" },
+        { id: "acc4", psid: "g.a0****4444", status: "active", is_healthy: false, keepalive_mode: "browser" },
+        { id: "acc5", psid: "g.a0****5555", status: "expired", is_healthy: false, keepalive_mode: "browser" },
       ],
     },
   });
@@ -63,7 +65,7 @@ test("侧边栏：仍报 active 但 is_healthy=false 显示红色「会话失效
 
   await import(new URL(`../popup.js?instance=${++seq}`, import.meta.url).href);
   for (const fn of listeners.DOMContentLoaded || []) fn();
-  await waitFor(() => byId("accounts").innerHTML.includes("acc3"));
+  await waitFor(() => byId("accounts").innerHTML.includes("acc5"));
 
   const html = byId("accounts").innerHTML;
   const badgeOf = (id) => {
@@ -75,5 +77,7 @@ test("侧边栏：仍报 active 但 is_healthy=false 显示红色「会话失效
   assert.deepEqual(badgeOf("acc1"), { cls: "active", text: "Active" });
   assert.deepEqual(badgeOf("acc2"), { cls: "expired", text: "Expired" });
   assert.deepEqual(badgeOf("acc3"), { cls: "active", text: "Active" }, "旧服务端没有 is_healthy 字段时照旧显示活动");
+  assert.deepEqual(badgeOf("acc4"), { cls: "unhealthy", text: "Unhealthy" }, "≥ 1.6.44 的不健康是中转站自身问题，不是会话失效");
+  assert.deepEqual(badgeOf("acc5"), { cls: "expired", text: "Expired" });
   assert.deepEqual(fake.calls.missingI18n, []);
 });

@@ -98,6 +98,9 @@
   "statusSessionInvalid": {
     "message": "セッション無効"
   },
+  "statusUnhealthy": {
+    "message": "異常"
+  },
   "statusRecovered": {
     "message": "復旧（有効）"
   },

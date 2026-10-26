@@ -14,24 +14,40 @@ export const SYNC_MIN_INTERVAL_MS = 60_000;
 export const FINGERPRINT_HEX_LEN = 16;
 
 /**
+ * 中转站会不会把「谷歌会话被打回登录页」直接报成 expired（gemini2api ≥ 1.6.44）。
+ * 1.6.44 起 /admin/status 的每个账号都带 keepalive_mode 字段（与这个派生 expired 同一版加入），
+ * 旧版本没有——据此区分新旧中转站。
+ */
+export function relayReportsSessionExpiry(account) {
+  return !!account && account.keepalive_mode !== undefined;
+}
+
+/**
  * 中转站账号是否需要插件「救火」（刷新标签页并提交新 Cookie）。
  * - status === "expired"；
- * - 或 is_healthy === false：gemini2api 1.6.41～1.6.43 对谷歌会话已失效的账号仍报 active，
- *   只把 is_healthy 置 false（新服务端两者都会给）。字段缺失（更旧的服务端）不算。
+ * - 或旧中转站（gemini2api 1.6.41～1.6.43，没有 keepalive_mode 字段）报 is_healthy === false：
+ *   它们对谷歌会话已失效的账号仍报 active，只把 is_healthy 置 false。
+ *   ≥ 1.6.44 已把这种账号直接报成 expired，仍报 active 但 is_healthy=false 只说明中转站自己暂时
+ *   不健康（网络抖动、5xx、刚启动还没就绪……）——换 Cookie 没用，不救，否则每轮都会刷新用户的标签页。
+ *   is_healthy 字段缺失（更旧的服务端）也不算。
  * 已禁用的账号是管理员的决定，不救（新服务端提交成功会把账号置回 active）。
  */
 export function needsRefresh(account) {
   if (!account || account.status === "disabled") return false;
-  return account.status === "expired" || account.is_healthy === false;
+  if (account.status === "expired") return true;
+  return account.is_healthy === false && !relayReportsSessionExpiry(account);
 }
 
 /**
- * 展示口径：status 仍是 active 但 is_healthy === false → "session_invalid"（会话失效），
- * 其余原样返回 status。徽章 / 侧边栏 / 日志共用。
+ * 展示口径（徽章 / 侧边栏 / 日志共用）：status 仍是 active 但 is_healthy === false 时——
+ * 旧中转站（1.6.41～1.6.43）→ "session_invalid"（会话失效，要救）；
+ * ≥ 1.6.44 → "unhealthy"（中转站自身不健康，不是登录失效，不救）。其余原样返回 status。
  */
 export function displayStatus(account) {
   if (!account) return "";
-  if (account.status === "active" && account.is_healthy === false) return "session_invalid";
+  if (account.status === "active" && account.is_healthy === false) {
+    return relayReportsSessionExpiry(account) ? "unhealthy" : "session_invalid";
+  }
   return account.status;
 }
 
