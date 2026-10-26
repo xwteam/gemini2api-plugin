@@ -29,6 +29,19 @@ function authHeaders(apiKey) {
   return h;
 }
 
+// 插件身份请求头：gemini2api ≥ 1.6.44 看到它就把该账号标成「浏览器保活」、不再由服务端轮换
+// （避免两边各自换 PSIDTS 互相顶掉）；旧服务端会忽略这个头。
+const KEEPALIVE_HEADER = "X-Gemini2API-Keepalive";
+
+function keepaliveHeaderValue(version = chrome.runtime.getManifest().version) {
+  return `gemini2api-plugin/${version}`;
+}
+
+/** 提交 cookie 用的请求头（PUT accounts/{id}/cookies 与 POST reload-cookies 共用） */
+function submitHeaders(apiKey) {
+  return { ...authHeaders(apiKey), [KEEPALIVE_HEADER]: keepaliveHeaderValue() };
+}
+
 async function httpError(resp) {
   const body = (await resp.text()).slice(0, 120);
   return t("errHttpStatus", String(resp.status), body);
@@ -59,7 +72,7 @@ async function submitCookies(cfg, accountId, psid, psidts) {
     try {
       const resp = await fetch(`${base}/admin/accounts/${encodeURIComponent(accountId)}/cookies`, {
         method: "PUT",
-        headers: authHeaders(cfg.apiKey),
+        headers: submitHeaders(cfg.apiKey),
         body,
       });
       if (resp.ok) return { ok: true, via: `PUT accounts/${accountId}` };
@@ -76,7 +89,7 @@ async function submitCookies(cfg, accountId, psid, psidts) {
   try {
     const resp = await fetch(`${base}/admin/reload-cookies`, {
       method: "POST",
-      headers: authHeaders(cfg.apiKey),
+      headers: submitHeaders(cfg.apiKey),
       body,
     });
     if (resp.ok) return { ok: true, via: "POST reload-cookies" };
@@ -103,4 +116,4 @@ async function checkAccount(cfg, accountId) {
   }
 }
 
-export { getConfig, fetchStatus, submitCookies, checkAccount, normalizeBase };
+export { getConfig, fetchStatus, submitCookies, checkAccount, normalizeBase, KEEPALIVE_HEADER, keepaliveHeaderValue };
