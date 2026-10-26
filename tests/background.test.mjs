@@ -360,3 +360,83 @@ describe("主动同步：失败处理", () => {
     assert.equal(logs(fake).filter((m) => m.startsWith("Sync: relay status query failed")).length, 1);
   });
 });
+
+describe("事件回调不留未处理的 Promise 拒绝", () => {
+  /** 记录本用例期间的 unhandledRejection */
+  function trackUnhandled(t) {
+    const seen = [];
+    const onRejection = (reason) => seen.push(reason);
+    process.on("unhandledRejection", onRejection);
+    t.after(() => process.off("unhandledRejection", onRejection));
+    return seen;
+  }
+
+  test("定时轮询抛异常（如设置徽章失败）：被兜住，只打 console.warn", async (t) => {
+    const { fake, bg, warns } = await setup(t, { local: { accountId: "acc0" } });
+    const unhandled = trackUnhandled(t);
+    fake.chrome.action.setBadgeText = async () => {
+      throw new Error("badge boom");
+    };
+    fireAlarm(fake);
+    await bg.whenIdle();
+    await flush(10);
+    assert.deepEqual(unhandled, []);
+    assert.ok(warns.some((w) => String(w[1]).includes("badge boom")));
+  });
+
+  test("救火流程抛异常（标签页刚被关掉，reload 失败）：不影响同一轮的兜底补推", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" }, accounts: [acct({ is_healthy: false })] });
+    const unhandled = trackUnhandled(t);
+    fake.chrome.tabs.reload = async () => {
+      throw new Error("No tab with id: 1.");
+    };
+    fireAlarm(fake);
+    await bg.whenIdle();
+    await flush(10);
+    assert.deepEqual(unhandled, []);
+    assert.equal(puts(fake).length, 1, "兜底补推照常把浏览器当前 cookie 推过去");
+  });
+
+  test("强制刷新出错时也一定回复 sendResponse", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" } });
+    const unhandled = trackUnhandled(t);
+    fake.chrome.tabs.reload = async () => {
+      throw new Error("No tab with id: 1.");
+    };
+    const replies = [];
+    const keepOpen = fake.events.message.fns[0]({ type: "refresh-now" }, {}, (r) => replies.push(r));
+    assert.equal(keepOpen, true);
+    await bg.whenIdle();
+    await flush(10);
+    assert.deepEqual(unhandled, []);
+    assert.equal(replies.length, 1);
+    assert.equal(replies[0].ok, false);
+  });
+
+  test("清空日志写 storage 失败时也回复 sendResponse", async (t) => {
+    const { fake } = await setup(t);
+    const unhandled = trackUnhandled(t);
+    fake.chrome.storage.local.set = async () => {
+      throw new Error("QUOTA_BYTES quota exceeded");
+    };
+    const replies = [];
+    fake.events.message.fns[0]({ type: "clear-log" }, {}, (r) => replies.push(r));
+    await flush(10);
+    assert.deepEqual(unhandled, []);
+    assert.deepEqual(replies.map((r) => r.ok), [false]);
+  });
+
+  test("安装 / 启动 / 改轮询间隔时重设 alarm 失败：被兜住", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" } });
+    const unhandled = trackUnhandled(t);
+    fake.chrome.alarms.create = async () => {
+      throw new Error("alarm boom");
+    };
+    fake.events.installed.fns[0]({ reason: "update" });
+    fake.events.startup.fns[0]();
+    fake.events.storage.fns[0]({ intervalSeconds: { oldValue: 60, newValue: 90 } }, "local");
+    await bg.whenIdle();
+    await flush(10);
+    assert.deepEqual(unhandled, []);
+  });
+});

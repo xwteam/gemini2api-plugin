@@ -325,7 +325,12 @@ async function _pollOnceInner() {
   }
 
   if (rescue.length) {
-    await rescueAccounts(cfg, rescue);
+    try {
+      await rescueAccounts(cfg, rescue);
+    } catch (e) {
+      // 例如标签页在 query 与 reload 之间被关掉：只记控制台，不影响下面的兜底补推
+      console.warn("[rescue]", e);
+    }
   } else {
     const statusKey = accounts.map((a) => `${a.id}:${a.status}`).join("|");
     const { [LAST_STATUS_KEY]: lastKey } = await chrome.storage.local.get(LAST_STATUS_KEY);
@@ -350,7 +355,7 @@ async function rearmAlarm() {
 }
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === ALARM_NAME) pollOnce();
+  if (alarm.name === ALARM_NAME) pollOnce().catch((e) => console.warn("[pollOnce]", e));
 });
 
 // 主动同步：必须在顶层同步注册，MV3 service worker 被回收后才能被 cookie 变化事件唤醒
@@ -363,7 +368,7 @@ chrome.action.onClicked.addListener((tab) => {
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-  rearmAlarm();
+  rearmAlarm().catch((e) => console.warn("[alarm]", e));
   if (chrome.sidePanel?.setPanelBehavior) {
     chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   }
@@ -371,12 +376,12 @@ chrome.runtime.onInstalled.addListener(() => {
   pollOnce().catch((e) => console.warn("[pollOnce]", e));
 });
 chrome.runtime.onStartup.addListener(() => {
-  rearmAlarm();
+  rearmAlarm().catch((e) => console.warn("[alarm]", e));
   pollOnce().catch((e) => console.warn("[pollOnce]", e));
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.intervalSeconds) rearmAlarm();
+  if (area === "local" && changes.intervalSeconds) rearmAlarm().catch((e) => console.warn("[alarm]", e));
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -388,7 +393,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.storage.local.set({ [LOG_KEY]: [] }).then(() => {
       log(t("logCleared"), "info");
       sendResponse({ ok: true });
-    });
+    }).catch((e) => sendResponse({ ok: false, error: e.message }));
     return true;
   }
   if (msg && msg.type === "refresh-now") {
@@ -423,6 +428,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       await handleExpiredAccount({ ...cfg, cooldownSeconds: 0 }, target, psid, psidts);
       sendResponse({ ok: true });
+    }).catch((e) => {
+      // 出错也要回复，否则侧边栏按钮一直停在「处理中…」
+      console.warn("[refresh-now]", e);
+      sendResponse({ ok: false, error: e && e.message });
     });
     return true;
   }
