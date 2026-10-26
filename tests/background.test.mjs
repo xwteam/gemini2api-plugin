@@ -487,6 +487,42 @@ describe("主动同步：失败处理", () => {
     assert.equal(logs(fake).filter((m) => m.startsWith("Account acc0 sync failed")).length, 1);
   });
 
+  test("原因消失、与中转站重新一致后，同样的原因再出现会重新记一条", async (t) => {
+    const MISSING = "Sync skipped: relay has no account acc0 — check the side panel binding";
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0", syncState: await syncedState() }, accounts: [] });
+    fireAlarm(fake); // 绑定的账号被删了
+    await bg.whenIdle();
+    fake.relay.accounts = [acct()]; // 恢复，且中转站手里就是浏览器当前这份 cookie（不用推）
+    t.mock.timers.tick(60_000);
+    fireAlarm(fake);
+    await bg.whenIdle();
+    fake.relay.accounts = []; // 又被删了
+    t.mock.timers.tick(60_000);
+    fireAlarm(fake);
+    await bg.whenIdle();
+    assert.equal(puts(fake).length, 0);
+    assert.equal(logs(fake).filter((m) => m === MISSING).length, 2, logs(fake).join("\n"));
+  });
+
+  test("清空日志后，仍在持续的跳过原因会重新出现在日志里", async (t) => {
+    const MISSING = "Sync skipped: relay has no account acc9 — check the side panel binding";
+    const { fake, bg } = await setup(t, { local: { accountId: "acc9" } });
+    fireAlarm(fake);
+    await bg.whenIdle();
+    assert.deepEqual(logs(fake).filter((m) => m === MISSING).length, 1);
+    const replies = [];
+    fake.events.message.fns[0]({ type: "clear-log" }, {}, (r) => replies.push(r));
+    await settle(t, bg.whenIdle());
+    await flush(10);
+    assert.deepEqual(replies, [{ ok: true }]);
+    assert.ok(!logs(fake).includes(MISSING));
+    t.mock.timers.tick(60_000);
+    fireAlarm(fake);
+    await bg.whenIdle();
+    assert.equal(logs(fake).filter((m) => m === MISSING).length, 1, logs(fake).join("\n"));
+    assert.ok(logs(fake).includes("Log cleared"));
+  });
+
   test("cookie 变化触发时查询中转站状态失败：只记一条，不推", async (t) => {
     const { fake, bg } = await setup(t, { local: { accountId: "acc0" } });
     fake.relay.statusCode = 500;

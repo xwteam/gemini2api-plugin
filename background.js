@@ -24,7 +24,8 @@ const LAST_STATUS_KEY = "lastPollStatus";
 // 主动同步状态 { [accountId]: { hash, pushedAt, triedAt } }：hash/pushedAt = 上次推送成功，
 // triedAt = 上次尝试（含失败）。只存 cookie 指纹（SHA-256 截断），不另存 cookie 原值。
 const SYNC_STATE_KEY = "syncState";
-// 上一条「同步跳过 / 失败」提示：同一原因不重复写日志，推送成功后清掉
+// 上一条「同步跳过 / 失败」提示：同一原因不重复写日志。推送成功、或中转站已与浏览器一致（原因已不在）
+// 时清掉，清空日志时也清掉——同样的原因以后再出现能重新写进日志
 const SYNC_NOTICE_KEY = "syncLastNotice";
 const MAX_LOG = 200;
 let _pollRunning = false;
@@ -203,6 +204,11 @@ async function syncFromStatus(cfg, accounts, trigger) {
   const accountId = pick.account.id;
   const hash = await cookieFingerprint(psid, psidts);
   const prev = (await getSyncState())[accountId] || {};
+  if (hash === prev.hash) {
+    // 中转站手里已是浏览器当前这份 cookie：之前记过的跳过 / 失败原因已经不在了
+    await clearNotice();
+    return;
+  }
   const now = Date.now();
   if (!shouldPush({ lastHash: prev.hash, newHash: hash, lastAt: prev.triedAt, now, minIntervalMs: SYNC_MIN_INTERVAL_MS })) {
     return;
@@ -417,10 +423,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg && msg.type === "clear-log") {
-    chrome.storage.local.set({ [LOG_KEY]: [] }).then(() => {
-      log(t("logCleared"), "info");
-      sendResponse({ ok: true });
-    }).catch((e) => sendResponse({ ok: false, error: e.message }));
+    // 连同步提示的去重记录一起清：仍在持续的跳过 / 失败原因要能重新出现在清空后的日志里
+    chrome.storage.local.set({ [LOG_KEY]: [] })
+      .then(() => chrome.storage.local.remove(SYNC_NOTICE_KEY))
+      .then(() => {
+        log(t("logCleared"), "info");
+        sendResponse({ ok: true });
+      }).catch((e) => sendResponse({ ok: false, error: e.message }));
     return true;
   }
   if (msg && msg.type === "refresh-now") {
