@@ -79,3 +79,8 @@ test("v1.3.0 新文案五语言齐全", () => {
     for (const key of V130_KEYS) assert.ok(d[key] && d[key].message, `${loc}.${key}`);
   }
 });
+
+test("v1.3.0 新文案都被代码用到（不留死键）", () => {
+  const src = readdirSync(root).filter((n) => n.endsWith(".js")).map((f) => read(f)).join("\n");
+  for (const key of V130_KEYS) assert.ok(src.includes(`"${key}"`), key);
+});
