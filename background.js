@@ -265,6 +265,29 @@ async function pollOnce() {
 
 /** 救火：刷新本地 Gemini 标签页，读新 cookie，提交给要救的账号 */
 async function rescueAccounts(cfg, rescue) {
+  // 刷新会打断用户正在用的 Gemini 页面，刷新前先确认这一轮真有账号要提交：
+  // - 未绑定账号 ID 时只提交给 PSID 对得上的账号。PSID 只在重新登录时才变，刷新改变不了它，
+  //   所以本地 PSID 与要救的账号都对不上（例如那是别的浏览器负责的账号）就不刷新；
+  //   读不到本地 PSID 时照旧刷新一次再读（下面会记「刷新后仍读不到」）。
+  // - 冷却期内的账号本来就不会提交，全都在冷却就不刷新（部分在冷却时，由 handleExpiredAccount 逐个记）。
+  const { psid: currentPsid } = await readGeminiCookies();
+  let due = rescue;
+  if (!cfg.accountId && currentPsid) {
+    due = rescue.filter((a) => isSameAccount(currentPsid, a.psid));
+    if (!due.length) {
+      await log(t("logNoAccountIdNoMatch", currentPsid.slice(0, 10)), "warn");
+      return;
+    }
+  }
+  const cooling = [];
+  for (const acc of due) {
+    if (await inCooldown(acc.id, cfg.cooldownSeconds)) cooling.push(acc);
+  }
+  if (cooling.length === due.length) {
+    for (const acc of cooling) await log(t("logAccountCooldown", acc.id), "info");
+    return;
+  }
+
   const r = await refreshGeminiTab();
   if (!r.ok) { await log(r.error, "error"); return; }
 

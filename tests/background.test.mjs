@@ -112,6 +112,56 @@ describe("救火口径：expired 或 is_healthy === false", () => {
   });
 });
 
+describe("救火：刷新标签页之前先看冷却与 PSID（刷新会打断用户正在用的页面）", () => {
+  test("绑定账号已过期但在冷却期：不刷新标签页，只记冷却；冷却过了照常救", async (t) => {
+    const { fake, bg } = await setup(t, {
+      local: { accountId: "acc0", cooldownMap: { acc0: T0 - 30_000 }, syncState: await syncedState() },
+      accounts: [acct({ status: "expired" })],
+    });
+    await settle(t, bg.pollOnce());
+    assert.deepEqual(fake.calls.reload, [], "冷却期内本来就不会提交，不该先刷新标签页");
+    assert.equal(puts(fake).length, 0);
+    assert.equal(logs(fake).filter((m) => m === "Account acc0 in cooldown — skipping this round").length, 1);
+    t.mock.timers.tick(90_000); // 距上次提交 120 秒，冷却结束
+    await settle(t, bg.pollOnce());
+    assert.deepEqual(fake.calls.reload, [1]);
+    assert.equal(puts(fake).length, 1);
+  });
+
+  test("未绑定且要救的账号都和本地 PSID 对不上（别的浏览器负责的）：不刷新标签页", async (t) => {
+    const { fake, bg } = await setup(t, {
+      local: { syncState: await syncedState() },
+      accounts: [acct({ id: "acc1", psid: masked(OTHER_PSID), is_healthy: false }), acct({ id: "acc2", psid: masked(OTHER_PSID), status: "expired" }), acct()],
+    });
+    for (let i = 0; i < 2; i++) {
+      await settle(t, bg.pollOnce());
+      t.mock.timers.tick(60_000);
+    }
+    assert.deepEqual(fake.calls.reload, [], "PSID 只在重新登录时才变，刷新改变不了匹配结果");
+    assert.equal(puts(fake).length, 0);
+    assert.ok(logs(fake).some((m) => m.startsWith(`No account ID and local PSID(${PSID.slice(0, 10)}…) matches no`)), logs(fake).join("\n"));
+    assert.equal(last(fake.calls.badgeColor), RED, "徽章照常显示待救数");
+  });
+
+  test("部分账号在冷却、部分不在：照常刷新并提交，冷却中的只记一条冷却", async (t) => {
+    const { fake, bg } = await setup(t, {
+      local: { cooldownMap: { acc0: T0 - 30_000 } },
+      accounts: [acct({ status: "expired" }), acct({ id: "acc1", status: "expired" })],
+    });
+    await settle(t, bg.pollOnce());
+    assert.deepEqual(fake.calls.reload, [1]);
+    assert.deepEqual(puts(fake).map((c) => c.path), ["/admin/accounts/acc1/cookies"]);
+    assert.equal(logs(fake).filter((m) => m === "Account acc0 in cooldown — skipping this round").length, 1);
+  });
+
+  test("本地读不到 PSID：照旧刷新一次再读（行为不变）", async (t) => {
+    const { fake, bg } = await setup(t, { accounts: [acct({ status: "expired" })], jar: {} });
+    await settle(t, bg.pollOnce());
+    assert.deepEqual(fake.calls.reload, [1]);
+    assert.ok(logs(fake).some((m) => m.startsWith("No local __Secure-1PSID after refresh")));
+  });
+});
+
 describe("救火口径：gemini2api ≥ 1.6.44（账号带 keepalive_mode）", () => {
   test("绑定账号仍报 active 但 is_healthy=false（网络抖动 / 5xx / 刚启动）：每轮都不刷新标签页、不提交，徽章蓝色", async (t) => {
     const { fake, bg } = await setup(t, {
