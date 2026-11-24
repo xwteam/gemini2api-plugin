@@ -105,7 +105,7 @@ The extension never rotates cookies itself: active sync only hands over what the
    - **Relay settings** (top right) for URL and API Key (see below)
 
 > [!NOTE]
-> **Upgrading**: after `git pull`, click **Reload** on this extension in the extensions page. v1.4.0 needs gemini2api ≥ v1.6.53 (so the relay can accept the full cookie set); the first poll after the upgrade pushes the full set once to the account this browser looks after.
+> **Upgrading**: after `git pull`, click **Reload** on this extension in the extensions page. v1.4.0 needs gemini2api ≥ v1.6.53 (so the relay can accept the full cookie set). The first poll after the extension upgrade pushes the full set once to the account this browser looks after, but only a relay already on v1.6.53 or later takes it: an older relay ignores the `cookies` field, and the extension then treats the set as pushed and won't push again until the browser next rotates its PSIDTS or OSID. So upgrade the relay first, then the extension; **if you upgraded the extension first, click Force refresh & submit in the sidebar once after upgrading the relay**.
 
 ## ⚙ Configuration
 
@@ -195,7 +195,7 @@ A: This browser is not logged into Gemini, or logged into a different account th
 A: Google may have revoked the main session (PSID cannot be recovered by refresh). Log in again for fresh cookies.
 
 **Q: The relay only shows the "Auto" model / other models return 400 / it asks for the full cookie set (with OSID)?**
-A: That's Google's 2026-11-20 change: `__Secure-1PSID` / `__Secure-1PSIDTS` alone no longer sign in to Gemini. Upgrade the relay to gemini2api ≥ v1.6.53 and this extension to v1.4.0, open and sign in at gemini.google.com in this browser, check that the sidebar's **Full cookie set** row says incl. OSID, then click **Force refresh & submit** once (optional — the first poll after the upgrade pushes the full set anyway).
+A: That's Google's 2026-11-20 change: `__Secure-1PSID` / `__Secure-1PSIDTS` alone no longer sign in to Gemini. Upgrade the relay to gemini2api ≥ v1.6.53 and this extension to v1.4.0, open and sign in at gemini.google.com in this browser, check that the sidebar's **Full cookie set** row says incl. OSID, then click **Force refresh & submit** once. You can skip the click only if the relay was upgraded to v1.6.53 before the extension (the first poll after the extension upgrade pushes the full set on its own). If you upgraded the extension first, the old relay ignored that one-time push and the extension won't push again until the browser next rotates its PSIDTS or OSID, so be sure to click **Force refresh & submit** once after upgrading the relay.
 
 **Q: Why does the extension submit cookies when nothing has expired?**
 A: That is active sync (v1.3.0). Your browser and the relay share one Google session; once the browser rotates PSIDTS, the relay's copy soon stops working, so the extension forwards the new value (only when it changed, at most once per 60s per account, without refreshing the tab). With gemini2api ≥ v1.6.44 the relay then stops rotating that account itself, so the two sides stop knocking each other out. From v1.4.0 it pushes the full cookie set, and a change to gemini.google.com's OSID is pushed too (per-request cookies like `*PSIDCC` aren't pushed on their own; they ride along with the next push).
