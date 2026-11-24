@@ -362,13 +362,16 @@
     }
   },
   "logCookieSubmitted": {
-    "message": "Account $1 — new cookies submitted ($2)",
+    "message": "Account $1 — new cookies submitted ($2; $3)",
     "placeholders": {
       "1": {
         "content": "$1"
       },
       "2": {
         "content": "$2"
+      },
+      "3": {
+        "content": "$3"
       }
     }
   },
@@ -507,7 +510,7 @@
     }
   },
   "logSyncPushed": {
-    "message": "Account $1 synced: browser cookies changed and were pushed to the relay ($2, $3)",
+    "message": "Account $1 synced: browser cookies changed and were pushed to the relay ($2, $3; $4)",
     "placeholders": {
       "1": {
         "content": "$1"
@@ -517,6 +520,9 @@
       },
       "3": {
         "content": "$3"
+      },
+      "4": {
+        "content": "$4"
       }
     }
   },
@@ -593,6 +599,47 @@
   },
   "syncTriggerPoll": {
     "message": "poll catch-up"
+  },
+  "syncSetOsid": {
+    "message": "$1 cookies synced, incl. OSID",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncSetNoOsid": {
+    "message": "$1 cookies synced, no OSID",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncSetPsidOnly": {
+    "message": "only PSID/PSIDTS synced (full cookie set unreadable)"
+  },
+  "cookieSetLabel": {
+    "message": "Full cookie set"
+  },
+  "cookieSetRead": {
+    "message": "$1 read (incl. OSID)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieSetReadNoOsid": {
+    "message": "$1 read (no OSID)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieSetNoOsidHint": {
+    "message": "No gemini.google.com OSID found — gemini2api ≥ v1.6.53 needs it; open and sign in at gemini.google.com in this browser"
   },
   "cookieEmpty": {
     "message": "(empty)"

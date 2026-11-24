@@ -362,13 +362,16 @@
     }
   },
   "logCookieSubmitted": {
-    "message": "账号 $1 新 Cookie 已提交（$2）",
+    "message": "账号 $1 新 Cookie 已提交（$2；$3）",
     "placeholders": {
       "1": {
         "content": "$1"
       },
       "2": {
         "content": "$2"
+      },
+      "3": {
+        "content": "$3"
       }
     }
   },
@@ -507,7 +510,7 @@
     }
   },
   "logSyncPushed": {
-    "message": "账号 $1 主动同步：浏览器 Cookie 有更新，已推送到中转站（$2，$3）",
+    "message": "账号 $1 主动同步：浏览器 Cookie 有更新，已推送到中转站（$2，$3；$4）",
     "placeholders": {
       "1": {
         "content": "$1"
@@ -517,6 +520,9 @@
       },
       "3": {
         "content": "$3"
+      },
+      "4": {
+        "content": "$4"
       }
     }
   },
@@ -593,6 +599,47 @@
   },
   "syncTriggerPoll": {
     "message": "定时轮询补推"
+  },
+  "syncSetOsid": {
+    "message": "已同步 $1 个 Cookie，含 OSID",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncSetNoOsid": {
+    "message": "已同步 $1 个 Cookie，缺 OSID",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncSetPsidOnly": {
+    "message": "只同步了 PSID/PSIDTS（读不到完整 Cookie）"
+  },
+  "cookieSetLabel": {
+    "message": "完整 Cookie"
+  },
+  "cookieSetRead": {
+    "message": "读到 $1 个（含 OSID）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieSetReadNoOsid": {
+    "message": "读到 $1 个（缺 OSID）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieSetNoOsidHint": {
+    "message": "没读到 gemini.google.com 的 OSID：gemini2api ≥ v1.6.53 需要它，请在本浏览器打开并登录 gemini.google.com"
   },
   "cookieEmpty": {
     "message": "（空）"

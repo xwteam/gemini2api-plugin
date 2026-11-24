@@ -1,8 +1,11 @@
 // background.js —— service worker：
 //   1) 救火：定时轮询中转站，账号过期 / 会话失效时刷新本地浏览器并提交新 cookie；
-//   2) 主动同步：浏览器自己轮换了 PSIDTS 时，把新值及时推给中转站（只读 cookie，不刷新标签页）。
+//   2) 主动同步：浏览器自己轮换了 PSIDTS（或 gemini.google.com 的 OSID）时，把新值及时推给中转站
+//      （只读 cookie，不刷新标签页）。
+// 两条线推的都是完整 cookie（v1.4.0）：浏览器访问 gemini.google.com/app 时会发的全部 cookie，
+// 含 gemini.google.com host-only 的 OSID——谷歌 2026-11-20 改版后只有 PSID/PSIDTS 会被打回登录页。
 import { getConfig, fetchStatus, submitCookies, checkAccount } from "./api.js";
-import { readGeminiCookies, isSameAccount } from "./cookies.js";
+import { readGeminiCookies, readGeminiSession, isSameAccount, hasGeminiOsid } from "./cookies.js";
 import { t, formatLogTime, accountStatusText } from "./i18n.js";
 import {
   needsRefresh,
@@ -135,7 +138,17 @@ async function refreshGeminiTab() {
   return { ok: true, tabId: tab.id };
 }
 
-async function handleExpiredAccount(cfg, account, localPsid, localPsidts) {
+/**
+ * 日志里写「这次推了什么」：N 个 cookie、含不含 gemini.google.com 的 OSID；读不到完整 cookie 时
+ * 注明只推了 PSID/PSIDTS。只有数量和名字，不出现任何 cookie 值。
+ */
+function cookieSetText(cookies) {
+  if (!Array.isArray(cookies) || !cookies.length) return t("syncSetPsidOnly");
+  const osid = hasGeminiOsid(cookies);
+  return t(osid ? "syncSetOsid" : "syncSetNoOsid", String(cookies.length));
+}
+
+async function handleExpiredAccount(cfg, account, localPsid, localPsidts, localCookies = null) {
   const accountId = account.id;
   if (await inCooldown(accountId, cfg.cooldownSeconds)) {
     await log(t("logAccountCooldown", accountId), "info");
@@ -146,12 +159,12 @@ async function handleExpiredAccount(cfg, account, localPsid, localPsidts) {
   await log(t(sessionInvalid ? "logAccountSessionInvalidSubmit" : "logAccountExpiredSubmit", accountId), "warn");
 
   const now = Date.now();
-  const sub = await submitCookies(cfg, accountId, localPsid, localPsidts);
+  const sub = await submitCookies(cfg, accountId, localPsid, localPsidts, localCookies);
   // 救火提交也记进同步状态：随后的兜底补推 / cookie 同步看到同一指纹就不会再推一遍
-  await recordPush(accountId, now, sub.ok ? await cookieFingerprint(localPsid, localPsidts) : null);
+  await recordPush(accountId, now, sub.ok ? await cookieFingerprint(localPsid, localPsidts, localCookies) : null);
   if (sub.ok) {
     await setCooldown(accountId);
-    await log(t("logCookieSubmitted", accountId, sub.via), "success");
+    await log(t("logCookieSubmitted", accountId, sub.via, cookieSetText(localCookies)), "success");
     const chk = await checkAccount(cfg, accountId);
     if (chk.ok) {
       if (chk.status === "active") {
@@ -186,12 +199,12 @@ function syncSkipMessage(pick, psid) {
 }
 
 /**
- * 主动同步：读浏览器当前 cookie（不刷新标签页）→ 选目标账号 → 指纹与上次成功推送不同、
+ * 主动同步：读浏览器当前的完整 cookie（不刷新标签页）→ 选目标账号 → 指纹与上次成功推送不同、
  * 且距该账号上次推送已满 60 秒 → 推。cookie 变化（防抖后）和每次定时轮询（兜底补推）都走这里；
  * 调用方须持有 exclusive 锁。失败只记日志、不抛，下一轮照常。
  */
 async function syncFromStatus(cfg, accounts, trigger) {
-  const { psid, psidts } = await readGeminiCookies();
+  const { psid, psidts, cookies } = await readGeminiSession();
   if (!psid || !psidts) {
     await logNotice(t("logSyncNoLocalCookie"), "info");
     return;
@@ -202,7 +215,7 @@ async function syncFromStatus(cfg, accounts, trigger) {
     return;
   }
   const accountId = pick.account.id;
-  const hash = await cookieFingerprint(psid, psidts);
+  const hash = await cookieFingerprint(psid, psidts, cookies);
   const prev = (await getSyncState())[accountId] || {};
   if (hash === prev.hash) {
     // 中转站手里已是浏览器当前这份 cookie：之前记过的跳过 / 失败原因已经不在了
@@ -214,13 +227,14 @@ async function syncFromStatus(cfg, accounts, trigger) {
     return;
   }
 
-  const sub = await submitCookies(cfg, accountId, psid, psidts);
+  const sub = await submitCookies(cfg, accountId, psid, psidts, cookies);
   await recordPush(accountId, now, sub.ok ? hash : null);
   if (sub.ok) {
     await clearNotice();
     if (!pick.psidMatch) await log(t("logPsidMismatchStillSubmit", accountId), "info");
     const fromCookie = trigger === "cookie";
-    await log(t("logSyncPushed", accountId, sub.via, t(fromCookie ? "syncTriggerCookie" : "syncTriggerPoll")), "success");
+    const triggerText = t(fromCookie ? "syncTriggerCookie" : "syncTriggerPoll");
+    await log(t("logSyncPushed", accountId, sub.via, triggerText, cookieSetText(cookies)), "success");
   } else {
     await logNotice(t("logSyncPushFail", accountId, sub.error), "error");
   }
@@ -297,7 +311,7 @@ async function rescueAccounts(cfg, rescue) {
   const r = await refreshGeminiTab();
   if (!r.ok) { await log(r.error, "error"); return; }
 
-  const { psid: localPsid, psidts: localPsidts } = await readGeminiCookies();
+  const { psid: localPsid, psidts: localPsidts, cookies: localCookies } = await readGeminiSession();
   if (!localPsid) {
     await log(t("logNoPsidAfterRefresh"), "error");
     return;
@@ -323,7 +337,7 @@ async function rescueAccounts(cfg, rescue) {
   }
 
   for (const acc of targets) {
-    await handleExpiredAccount(cfg, acc, localPsid, localPsidts);
+    await handleExpiredAccount(cfg, acc, localPsid, localPsidts, localCookies);
   }
 }
 
@@ -391,7 +405,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_NAME) pollOnce().catch((e) => console.warn("[pollOnce]", e));
 });
 
-// 主动同步：必须在顶层同步注册，MV3 service worker 被回收后才能被 cookie 变化事件唤醒
+// 主动同步：必须在顶层同步注册，MV3 service worker 被回收后才能被 cookie 变化事件唤醒。
+// 触发的 cookie 见 sync.js isSyncTriggerCookie（PSID/PSIDTS + gemini.google.com 的 OSID）
 chrome.cookies.onChanged.addListener((changeInfo) => {
   if (isAuthCookieChange(changeInfo)) scheduleSync();
 });
@@ -442,7 +457,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const r = await refreshGeminiTab();
       if (!r.ok) { await log(r.error, "error"); sendResponse({ ok: false }); return; }
 
-      const { psid, psidts } = await readGeminiCookies();
+      const { psid, psidts, cookies } = await readGeminiSession();
       if (!psid) { await log(t("logNoLocalPsid"), "error"); sendResponse({ ok: false }); return; }
 
       let target;
@@ -462,7 +477,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ ok: false }); return;
         }
       }
-      await handleExpiredAccount({ ...cfg, cooldownSeconds: 0 }, target, psid, psidts);
+      await handleExpiredAccount({ ...cfg, cooldownSeconds: 0 }, target, psid, psidts, cookies);
       sendResponse({ ok: true });
     }).catch((e) => {
       // 出错也要回复，否则侧边栏按钮一直停在「处理中…」

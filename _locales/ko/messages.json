@@ -362,13 +362,16 @@
     }
   },
   "logCookieSubmitted": {
-    "message": "계정 $1 — 새 Cookie 제출됨($2)",
+    "message": "계정 $1 — 새 Cookie 제출됨($2; $3)",
     "placeholders": {
       "1": {
         "content": "$1"
       },
       "2": {
         "content": "$2"
+      },
+      "3": {
+        "content": "$3"
       }
     }
   },
@@ -507,7 +510,7 @@
     }
   },
   "logSyncPushed": {
-    "message": "계정 $1 능동 동기화: 브라우저 Cookie 갱신분을 중계에 제출함($2, $3)",
+    "message": "계정 $1 능동 동기화: 브라우저 Cookie 갱신분을 중계에 제출함($2, $3; $4)",
     "placeholders": {
       "1": {
         "content": "$1"
@@ -517,6 +520,9 @@
       },
       "3": {
         "content": "$3"
+      },
+      "4": {
+        "content": "$4"
       }
     }
   },
@@ -593,6 +599,47 @@
   },
   "syncTriggerPoll": {
     "message": "주기 폴링 보충"
+  },
+  "syncSetOsid": {
+    "message": "Cookie $1개 동기화, OSID 포함",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncSetNoOsid": {
+    "message": "Cookie $1개 동기화, OSID 없음",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncSetPsidOnly": {
+    "message": "PSID/PSIDTS만 동기화(전체 Cookie 읽기 실패)"
+  },
+  "cookieSetLabel": {
+    "message": "전체 Cookie"
+  },
+  "cookieSetRead": {
+    "message": "$1개(OSID 포함)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieSetReadNoOsid": {
+    "message": "$1개(OSID 없음)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieSetNoOsidHint": {
+    "message": "gemini.google.com의 OSID가 없습니다 — gemini2api ≥ v1.6.53에 필요합니다. 이 브라우저에서 gemini.google.com을 열고 로그인하세요"
   },
   "cookieEmpty": {
     "message": "(비어 있음)"

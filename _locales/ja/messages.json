@@ -362,13 +362,16 @@
     }
   },
   "logCookieSubmitted": {
-    "message": "アカウント $1 — 新 Cookie 送信済み（$2）",
+    "message": "アカウント $1 — 新 Cookie 送信済み（$2；$3）",
     "placeholders": {
       "1": {
         "content": "$1"
       },
       "2": {
         "content": "$2"
+      },
+      "3": {
+        "content": "$3"
       }
     }
   },
@@ -507,7 +510,7 @@
     }
   },
   "logSyncPushed": {
-    "message": "アカウント $1 アクティブ同期：ブラウザ Cookie の更新を中継に送信（$2、$3）",
+    "message": "アカウント $1 アクティブ同期：ブラウザ Cookie の更新を中継に送信（$2、$3；$4）",
     "placeholders": {
       "1": {
         "content": "$1"
@@ -517,6 +520,9 @@
       },
       "3": {
         "content": "$3"
+      },
+      "4": {
+        "content": "$4"
       }
     }
   },
@@ -593,6 +599,47 @@
   },
   "syncTriggerPoll": {
     "message": "定期ポーリングで補完"
+  },
+  "syncSetOsid": {
+    "message": "Cookie $1 件を同期、OSID あり",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncSetNoOsid": {
+    "message": "Cookie $1 件を同期、OSID なし",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "syncSetPsidOnly": {
+    "message": "PSID/PSIDTS のみ同期（完全な Cookie を読み取れず）"
+  },
+  "cookieSetLabel": {
+    "message": "完全な Cookie"
+  },
+  "cookieSetRead": {
+    "message": "$1 件（OSID あり）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieSetReadNoOsid": {
+    "message": "$1 件（OSID なし）",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "cookieSetNoOsidHint": {
+    "message": "gemini.google.com の OSID が見つかりません — gemini2api ≥ v1.6.53 で必要です。このブラウザで gemini.google.com を開いてログインしてください"
   },
   "cookieEmpty": {
     "message": "（空）"

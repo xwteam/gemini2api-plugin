@@ -1,21 +1,40 @@
 // background.js 接线测试：用假 chrome.* / fetch 驱动 service worker 的真实代码路径
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { createFakeChrome, drainInstances, flush, loadBackground, settle } from "./helpers/fake-chrome.mjs";
+import { createFakeChrome, drainInstances, flush, loadBackground, settle, visibleCookies } from "./helpers/fake-chrome.mjs";
 import { cookieFingerprint } from "../sync.js";
+import { toSubmitCookie } from "../cookies.js";
 
 const BASE = "http://relay.test:5918";
 const PSID = "g.a000AAAAbbbbCCCCddddEEEEffffGGGGhhhhIIIIjjjjKKKK1234";
 const OTHER_PSID = "g.a000ZZZZyyyyXXXXwwwwVVVVuuuuTTTTssssRRRRqqqqPPPP9876";
 const PSIDTS_1 = "sidts-CjEB_first_value_xxxxxxxxxxxxxxxx";
 const PSIDTS_2 = "sidts-CjEB_second_value_yyyyyyyyyyyyyyy";
+const OSID_1 = "osid-gemini-host-only-value-1111";
+const OSID_2 = "osid-gemini-host-only-value-2222";
+const GEMINI_APP = "https://gemini.google.com/app";
+/**
+ * 接近真实浏览器的 jar：.google.com 域 cookie + gemini.google.com host-only 的 OSID +
+ * 浏览器访问 Gemini 时不会发的 accounts.google.com host-only cookie
+ */
+const jarOf = (psid = PSID, psidts = PSIDTS_1, osid = OSID_1) => ({
+  "__Secure-1PSID": psid,
+  "__Secure-1PSIDTS": psidts,
+  SID: "sid-value-aaaaaaaaaaaa",
+  "__Secure-1PSIDCC": "psidcc-value-bbbbbbbbbbbb",
+  OSID: { value: osid, domain: "gemini.google.com", hostOnly: true },
+  "__Host-GAPS": { value: "gaps-value-cccccccccccc", domain: "accounts.google.com", hostOnly: true },
+});
+/** 插件应当推给中转站的完整 cookie（= 浏览器访问 gemini.google.com/app 时会发的那些） */
+const fullOf = (jar) => visibleCookies(jar, GEMINI_APP).map(toSubmitCookie);
 const masked = (v) => `${v.slice(0, 4)}****${v.slice(-4)}`;
 const acct = (over = {}) => ({ id: "acc0", psid: masked(PSID), status: "active", is_healthy: true, cooling_down: false, ...over });
 // gemini2api ≥ 1.6.44 的账号（多一个 keepalive_mode 字段）；不带它的 acct() 就是 1.6.41～1.6.43 这类旧中转站
 const newAcct = (over = {}) => acct({ keepalive_mode: "browser", ...over });
 /** 预置「上次成功推送的就是浏览器当前这份 cookie」，让兜底补推没有东西可推，只看救火本身 */
 async function syncedState(accountId = "acc0", psid = PSID, psidts = PSIDTS_1) {
-  return { [accountId]: { hash: await cookieFingerprint(psid, psidts), pushedAt: T0 - 3_600_000, triedAt: T0 - 3_600_000 } };
+  const hash = await cookieFingerprint(psid, psidts, fullOf(jarOf(psid, psidts)));
+  return { [accountId]: { hash, pushedAt: T0 - 3_600_000, triedAt: T0 - 3_600_000 } };
 }
 const T0 = 1_700_000_000_000;
 const RED = "#d93025";
@@ -28,7 +47,7 @@ async function setup(t, { local = {}, accounts = [acct()], jar } = {}) {
   t.mock.method(console, "warn", (...args) => warns.push(args));
   const fake = createFakeChrome({
     local: { baseUrl: BASE, apiKey: "sk-test", ...local },
-    jar: jar ?? { "__Secure-1PSID": PSID, "__Secure-1PSIDTS": PSIDTS_1 },
+    jar: jar ?? jarOf(),
     relay: { accounts },
   });
   const had = "chrome" in globalThis;
@@ -46,12 +65,17 @@ async function setup(t, { local = {}, accounts = [acct()], jar } = {}) {
 }
 
 const puts = (fake) => fake.calls.fetch.filter((c) => c.method === "PUT");
+/** 请求体里的 psid / psidts（完整 cookie 列表另外断言） */
+const authOf = (call) => {
+  const { psid, psidts } = JSON.parse(call.body);
+  return { psid, psidts };
+};
 const logs = (fake) => (fake.stores.local.actionLog || []).map((e) => e.msg);
 const last = (arr) => arr[arr.length - 1];
 
 /** 模拟 chrome.cookies.onChanged 事件 */
 function cookieEvent(fake, { name = "__Secure-1PSIDTS", domain = ".google.com", removed = false, cause } = {}) {
-  const info = { removed, cause: cause ?? (removed ? "overwrite" : "explicit"), cookie: { name, domain, path: "/", value: "x" } };
+  const info = { removed, cause: cause ?? (removed ? "overwrite" : "explicit"), cookie: { name, domain, path: "/", value: "x", hostOnly: !domain.startsWith(".") } };
   for (const fn of [...fake.events.cookies.fns]) fn(info);
 }
 /** 模拟定时轮询的 alarm 到点 */
@@ -68,7 +92,7 @@ describe("救火口径：expired 或 is_healthy === false", () => {
     assert.equal(p.length, 1);
     assert.equal(p[0].path, "/admin/accounts/acc0/cookies");
     assert.equal(p[0].headers["X-Gemini2API-Keepalive"], "gemini2api-plugin/1.3.0");
-    assert.deepEqual(JSON.parse(p[0].body), { psid: PSID, psidts: PSIDTS_1 });
+    assert.deepEqual(JSON.parse(p[0].body), { psid: PSID, psidts: PSIDTS_1, cookies: fullOf(jarOf()) });
     assert.equal(last(fake.calls.badgeText), "1");
     assert.equal(last(fake.calls.badgeColor), RED);
     assert.ok(logs(fake).some((m) => m.includes("Account acc0 session invalid")), logs(fake).join("\n"));
@@ -227,7 +251,7 @@ describe("主动同步：cookie 变化 → 防抖 → 推送", () => {
     assert.equal(p.length, 1);
     assert.equal(p[0].path, "/admin/accounts/acc0/cookies");
     assert.equal(p[0].headers["X-Gemini2API-Keepalive"], "gemini2api-plugin/1.3.0");
-    assert.deepEqual(JSON.parse(p[0].body), { psid: PSID, psidts: PSIDTS_1 });
+    assert.deepEqual(JSON.parse(p[0].body), { psid: PSID, psidts: PSIDTS_1, cookies: fullOf(jarOf()) });
     assert.deepEqual(fake.calls.reload, [], "主动同步不刷新标签页");
     const st = fake.stores.local.syncState.acc0;
     assert.match(st.hash, /^[0-9a-f]{16}$/);
@@ -294,7 +318,7 @@ describe("主动同步：cookie 变化 → 防抖 → 推送", () => {
     await bg.whenIdle();
     const p = puts(fake);
     assert.equal(p.length, 2);
-    assert.deepEqual(JSON.parse(p[1].body), { psid: PSID, psidts: PSIDTS_2 });
+    assert.deepEqual(authOf(p[1]), { psid: PSID, psidts: PSIDTS_2 });
     assert.ok(logs(fake).some((m) => m.startsWith("Account acc0 synced") && m.includes("poll catch-up")));
   });
 
@@ -309,7 +333,7 @@ describe("主动同步：cookie 变化 → 防抖 → 推送", () => {
     await bg2.whenIdle();
     const p = puts(fake);
     assert.equal(p.length, 1);
-    assert.deepEqual(JSON.parse(p[0].body), { psid: PSID, psidts: PSIDTS_1 });
+    assert.deepEqual(authOf(p[0]), { psid: PSID, psidts: PSIDTS_1 });
     assert.ok(logs(fake).some((m) => m.startsWith("Account acc0 synced") && m.includes("poll catch-up")));
   });
 
@@ -533,6 +557,157 @@ describe("主动同步：失败处理", () => {
     }
     assert.equal(puts(fake).length, 0);
     assert.equal(logs(fake).filter((m) => m.startsWith("Sync: relay status query failed")).length, 1);
+  });
+});
+
+describe("v1.4.0 完整 cookie（谷歌 11-20 改版后只有 PSID/PSIDTS 会被打回登录页）", () => {
+  /** jar 里所有 cookie 的值（含访问 Gemini 时不会发的那些），用来确认哪里都没有泄露 */
+  const allValues = (jar) => visibleCookies(jar, GEMINI_APP).concat(visibleCookies(jar, "https://accounts.google.com/")).map((c) => c.value);
+  function assertNoCookieValues(fake, jar, extra = []) {
+    const logDump = JSON.stringify(fake.stores.local.actionLog || []);
+    const storeDump = JSON.stringify(fake.stores.local);
+    const consoleDump = JSON.stringify([console.log.mock.calls.map((c) => c.arguments), console.warn.mock.calls.map((c) => c.arguments)]);
+    for (const v of [...allValues(jar), ...extra]) {
+      assert.ok(!logDump.includes(v), `日志里出现了 cookie 值 ${v.slice(0, 6)}…`);
+      assert.ok(!storeDump.includes(v), `storage 里出现了 cookie 值 ${v.slice(0, 6)}…`);
+      assert.ok(!consoleDump.includes(v), `控制台里出现了 cookie 值 ${v.slice(0, 6)}…`);
+    }
+  }
+
+  test("主动同步：body 带完整 cookie（含 gemini.google.com host-only 的 OSID，不含 accounts.google.com 的），psid/psidts 与列表一致", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" } });
+    cookieEvent(fake);
+    t.mock.timers.tick(10_000);
+    await bg.whenIdle();
+    const p = puts(fake);
+    assert.equal(p.length, 1);
+    assert.deepEqual(fake.calls.cookiesGetAll.at(-1), { url: GEMINI_APP });
+    const body = JSON.parse(p[0].body);
+    assert.deepEqual(
+      body.cookies.map((c) => `${c.name}@${c.domain}${c.hostOnly ? " host-only" : ""}`).sort(),
+      ["OSID@gemini.google.com host-only", "SID@.google.com", "__Secure-1PSID@.google.com", "__Secure-1PSIDCC@.google.com", "__Secure-1PSIDTS@.google.com"],
+    );
+    assert.equal(body.cookies.find((c) => c.name === "__Secure-1PSID").value, body.psid);
+    assert.equal(body.cookies.find((c) => c.name === "__Secure-1PSIDTS").value, body.psidts);
+    assert.ok(logs(fake).some((m) => m.startsWith("Account acc0 synced") && m.includes("5 cookies synced, incl. OSID")), logs(fake).join("\n"));
+    assertNoCookieValues(fake, jarOf());
+    assert.deepEqual(fake.calls.missingI18n, []);
+  });
+
+  test("gemini.google.com 的 OSID 变了（PSID/PSIDTS 没变）也触发主动同步，推上新的 OSID", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0", syncState: await syncedState() } });
+    fake.jar.OSID = { value: OSID_2, domain: "gemini.google.com", hostOnly: true };
+    cookieEvent(fake, { name: "OSID", domain: "gemini.google.com" });
+    t.mock.timers.tick(10_000);
+    await bg.whenIdle();
+    const p = puts(fake);
+    assert.equal(p.length, 1);
+    assert.deepEqual(authOf(p[0]), { psid: PSID, psidts: PSIDTS_1 });
+    assert.equal(JSON.parse(p[0].body).cookies.find((c) => c.name === "OSID").value, OSID_2);
+    assert.ok(logs(fake).some((m) => m.startsWith("Account acc0 synced") && m.includes("cookie change")));
+  });
+
+  test("__Secure-OSID 变化同样触发；别的谷歌服务的 OSID、*PSIDCC / SIDCC 变化不触发，兜底补推也不推", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0", syncState: await syncedState() } });
+    fake.jar["__Secure-1PSIDCC"] = "psidcc-value-changed-every-request";
+    cookieEvent(fake, { name: "__Secure-1PSIDCC" });
+    cookieEvent(fake, { name: "SIDCC" });
+    cookieEvent(fake, { name: "OSID", domain: "mail.google.com" });
+    t.mock.timers.tick(60_000);
+    await bg.whenIdle();
+    await flush();
+    assert.equal(fake.calls.fetch.length, 0, "不该因为常变 cookie 去查中转站");
+    fireAlarm(fake);
+    await bg.whenIdle();
+    assert.equal(puts(fake).length, 0, "指纹不含 *PSIDCC：兜底补推也不推");
+
+    fake.jar["__Secure-OSID"] = { value: "secure-osid-new-value-3333", domain: "gemini.google.com", hostOnly: true };
+    t.mock.timers.tick(60_000);
+    cookieEvent(fake, { name: "__Secure-OSID", domain: "gemini.google.com" });
+    t.mock.timers.tick(10_000);
+    await bg.whenIdle();
+    assert.equal(puts(fake).length, 1);
+    assert.ok(JSON.parse(puts(fake)[0].body).cookies.some((c) => c.name === "__Secure-OSID" && c.domain === "gemini.google.com"));
+  });
+
+  test("救火（expired）：刷新标签页后读的完整 cookie 一并提交，日志注明含 OSID", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" }, accounts: [newAcct({ status: "expired", is_healthy: false })] });
+    await settle(t, bg.pollOnce());
+    assert.deepEqual(fake.calls.reload, [1]);
+    const p = puts(fake);
+    assert.equal(p.length, 1, "救火推过的指纹记下来，同一轮兜底补推不重复");
+    assert.deepEqual(JSON.parse(p[0].body), { psid: PSID, psidts: PSIDTS_1, cookies: fullOf(jarOf()) });
+    assert.ok(logs(fake).some((m) => m.startsWith("Account acc0 — new cookies submitted") && m.includes("5 cookies synced, incl. OSID")), logs(fake).join("\n"));
+    assertNoCookieValues(fake, jarOf());
+  });
+
+  test("强制刷新：同样提交完整 cookie", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" } });
+    const replies = [];
+    fake.events.message.fns[0]({ type: "refresh-now" }, {}, (r) => replies.push(r));
+    await settle(t, bg.whenIdle());
+    assert.deepEqual(replies, [{ ok: true }]);
+    const p = puts(fake);
+    assert.equal(p.length, 1);
+    assert.deepEqual(JSON.parse(p[0].body), { psid: PSID, psidts: PSIDTS_1, cookies: fullOf(jarOf()) });
+  });
+
+  test("从 1.3.0 升级：syncState 里是只含 PSID/PSIDTS 的老指纹 → 第一轮补推一次完整 cookie，之后不重复", async (t) => {
+    const legacy = { acc0: { hash: await cookieFingerprint(PSID, PSIDTS_1), pushedAt: T0 - 3_600_000, triedAt: T0 - 3_600_000 } };
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0", syncState: legacy } });
+    fireAlarm(fake);
+    await bg.whenIdle();
+    assert.equal(puts(fake).length, 1);
+    assert.deepEqual(JSON.parse(puts(fake)[0].body).cookies, fullOf(jarOf()));
+    assert.ok(logs(fake).some((m) => m.startsWith("Account acc0 synced") && m.includes("poll catch-up")));
+    for (let i = 0; i < 3; i++) {
+      t.mock.timers.tick(60_000);
+      fireAlarm(fake);
+      await bg.whenIdle();
+    }
+    assert.equal(puts(fake).length, 1);
+  });
+
+  test("读不到完整 cookie（getAll 出错）：照 1.3.0 老格式推 psid/psidts，日志注明只同步了 PSID/PSIDTS", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" } });
+    const realGetAll = fake.chrome.cookies.getAll;
+    fake.chrome.cookies.getAll = async () => {
+      throw new Error("getAll boom");
+    };
+    fireAlarm(fake);
+    await bg.whenIdle();
+    const p = puts(fake);
+    assert.equal(p.length, 1);
+    assert.deepEqual(JSON.parse(p[0].body), { psid: PSID, psidts: PSIDTS_1 });
+    assert.ok(logs(fake).some((m) => m.startsWith("Account acc0 synced") && m.includes("only PSID/PSIDTS synced")), logs(fake).join("\n"));
+    // 指纹按老格式记：getAll 恢复后会再推一次完整 cookie
+    assert.equal(fake.stores.local.syncState.acc0.hash, await cookieFingerprint(PSID, PSIDTS_1));
+    fake.chrome.cookies.getAll = realGetAll; // getAll 恢复
+    t.mock.timers.tick(60_000);
+    fireAlarm(fake);
+    await bg.whenIdle();
+    assert.equal(puts(fake).length, 2);
+    assert.deepEqual(JSON.parse(puts(fake)[1].body).cookies, fullOf(jarOf()));
+  });
+
+  test("读到完整 cookie 但没有 gemini.google.com 的 OSID：照推，日志写缺 OSID", async (t) => {
+    const jar = jarOf();
+    delete jar.OSID;
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" }, jar });
+    fireAlarm(fake);
+    await bg.whenIdle();
+    const p = puts(fake);
+    assert.equal(p.length, 1);
+    assert.equal(JSON.parse(p[0].body).cookies.length, 4);
+    assert.ok(logs(fake).some((m) => m.startsWith("Account acc0 synced") && m.includes("4 cookies synced, no OSID")), logs(fake).join("\n"));
+  });
+
+  test("未登录（只有访客 cookie，没有 PSID）：不推", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" }, jar: { NID: "nid-value-guest", AEC: "aec-value-guest" } });
+    fireAlarm(fake);
+    await bg.whenIdle();
+    assert.equal(puts(fake).length, 0);
+    assert.ok(logs(fake).some((m) => m.startsWith("Sync skipped: no local PSID/PSIDTS")));
   });
 });
 
