@@ -104,12 +104,16 @@ function cookieValue(cookies, name) {
  *   （gemini2api ≥ 1.6.53 收到不一致的会回 400；分开读的话浏览器恰好在两次读取之间轮换就会对不上）；
  * - getAll 不可用 / 出错、或快照里没有 PSID（未登录，只有访客 cookie，不推）时退回逐个读 PSID/PSIDTS，
  *   cookies 为 null——调用方按 1.3.0 的老格式只提交这两个。
+ * - 快照里有 PSID 却没有 PSIDTS（或值为空）时同样退回、cookies 为 null：这时 body 的 psidts 是 ""、列表里
+ *   又没有 __Secure-1PSIDTS，1.6.53 会判不一致回 400；救火失败不设冷却，每轮都会再刷新一次用户的 Gemini
+ *   标签页。老格式中转站照旧接受。主动同步本来就要求两个都有，不受影响。
  */
 async function readGeminiSession() {
   const all = await readAllGeminiCookies();
   if (all) {
     const psid = cookieValue(all, COOKIE_PSID);
-    if (psid) return { psid, psidts: cookieValue(all, COOKIE_PSIDTS), cookies: all };
+    const psidts = cookieValue(all, COOKIE_PSIDTS);
+    if (psid && psidts) return { psid, psidts, cookies: all };
   }
   const { psid, psidts } = await readGeminiCookies();
   return { psid, psidts, cookies: null };

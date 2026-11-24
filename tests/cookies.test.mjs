@@ -165,13 +165,20 @@ describe("readGeminiSession（B1：完整 cookie）", () => {
     assert.deepEqual(s, { psid: null, psidts: null, cookies: null });
   });
 
-  test("有 PSID 没有 PSIDTS：psidts 为 null，cookies 照常返回", async (t) => {
-    const fake = createFakeChrome({ jar: { "__Secure-1PSID": PSID, SID: "sid-value" } });
+  test("有 PSID 没有 PSIDTS：cookies 为 null，调用方按老格式只推 psid/psidts（不推缺 1PSIDTS 的列表，中转站会判不一致回 400）", async (t) => {
+    const fake = createFakeChrome({ jar: { "__Secure-1PSID": PSID, SID: "sid-value", OSID: { value: OSID, domain: "gemini.google.com", hostOnly: true } } });
+    withChrome(t, fake);
+    const s = await readGeminiSession();
+    assert.deepEqual(s, { psid: PSID, psidts: null, cookies: null });
+  });
+
+  test("快照里 PSIDTS 为空值：同样当缺 PSIDTS，cookies 为 null", async (t) => {
+    const fake = createFakeChrome({ jar: { "__Secure-1PSID": PSID, "__Secure-1PSIDTS": "", SID: "sid-value" } });
     withChrome(t, fake);
     const s = await readGeminiSession();
     assert.equal(s.psid, PSID);
     assert.equal(s.psidts, null);
-    assert.equal(s.cookies.length, 2);
+    assert.equal(s.cookies, null);
   });
 
   test("没有名字的 cookie 丢掉（中转站按名字存）", async (t) => {

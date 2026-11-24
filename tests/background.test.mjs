@@ -652,6 +652,40 @@ describe("v1.4.0 完整 cookie（谷歌 11-20 改版后只有 PSID/PSIDTS 会被
     assert.deepEqual(JSON.parse(p[0].body), { psid: PSID, psidts: PSIDTS_1, cookies: fullOf(jarOf()) });
   });
 
+  // 中转站（A2）要求 psid/psidts 与 cookies 里的 __Secure-1PSID/1PSIDTS 一致，不一致回 400；而救火失败不设冷却，
+  // 每轮都会再刷新一次用户的 Gemini 标签页。所以本地缺 PSIDTS 时救火 / 强制刷新按 1.3.0 老格式只推两个值。
+  const jarNoPsidts = () => {
+    const jar = jarOf();
+    delete jar["__Secure-1PSIDTS"];
+    return jar;
+  };
+
+  test("救火：本地有 PSID 没有 PSIDTS → 按老格式推 { psid, psidts: \"\" }，不带缺 1PSIDTS 的 cookies 列表，成功后进冷却", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" }, accounts: [newAcct({ status: "expired", is_healthy: false })], jar: jarNoPsidts() });
+    await settle(t, bg.pollOnce());
+    assert.deepEqual(fake.calls.reload, [1]);
+    const p = puts(fake);
+    assert.equal(p.length, 1);
+    assert.deepEqual(JSON.parse(p[0].body), { psid: PSID, psidts: "" });
+    assert.ok(logs(fake).some((m) => m.startsWith("Account acc0 — new cookies submitted") && m.includes("only PSID/PSIDTS synced")), logs(fake).join("\n"));
+    // 提交成功进了冷却：下一轮不再刷新标签页
+    t.mock.timers.tick(60_000);
+    await settle(t, bg.pollOnce());
+    assert.deepEqual(fake.calls.reload, [1]);
+    assertNoCookieValues(fake, jarNoPsidts());
+  });
+
+  test("强制刷新：本地有 PSID 没有 PSIDTS → 同样按老格式推，不带 cookies", async (t) => {
+    const { fake, bg } = await setup(t, { local: { accountId: "acc0" }, jar: jarNoPsidts() });
+    const replies = [];
+    fake.events.message.fns[0]({ type: "refresh-now" }, {}, (r) => replies.push(r));
+    await settle(t, bg.whenIdle());
+    assert.deepEqual(replies, [{ ok: true }]);
+    const p = puts(fake);
+    assert.equal(p.length, 1);
+    assert.deepEqual(JSON.parse(p[0].body), { psid: PSID, psidts: "" });
+  });
+
   test("从 1.3.0 升级：syncState 里是只含 PSID/PSIDTS 的老指纹 → 第一轮补推一次完整 cookie，之后不重复", async (t) => {
     const legacy = { acc0: { hash: await cookieFingerprint(PSID, PSIDTS_1), pushedAt: T0 - 3_600_000, triedAt: T0 - 3_600_000 } };
     const { fake, bg } = await setup(t, { local: { accountId: "acc0", syncState: legacy } });
