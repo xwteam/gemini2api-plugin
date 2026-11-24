@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.0
+
+- **推完整 Cookie（适配谷歌 2026-11-20 改版）**：改版后只带 `__Secure-1PSID` / `__Secure-1PSIDTS` 打开 Gemini 会被 302 到谷歌登录页——中转站以为初始化成功，实际是未登录访客（只剩「Auto」一个模型，别的模型报 400）。插件改用 `chrome.cookies.getAll({ url: "https://gemini.google.com/app" })` 读浏览器访问 Gemini 时会发的全部 Cookie（`.google.com` 域的 SID / HSID / SSID / APISID / SAPISID / `__Secure-1PAPISID` / `__Secure-3PSID` / `*PSIDCC` 等，加上 gemini.google.com 自己的 host-only `OSID` / `__Secure-OSID`），保留 domain / path / hostOnly / secure / httpOnly / expirationDate；主动同步、救火、强制刷新三条路径都在 `{ psid, psidts }` 之外带上 `cookies: [...]`（字段名照 `chrome.cookies.Cookie`），`PUT /admin/accounts/{id}/cookies` 与 `POST /admin/reload-cookies` 都带。**需要 gemini2api ≥ v1.6.53** 才会用上；旧中转站忽略这个字段，行为与 v1.3.0 相同
+- psid / psidts 与 `cookies` 出自同一份快照，保证与列表里的 `__Secure-1PSID` / `__Secure-1PSIDTS` 一致（中转站对不上会回 400）；读不到完整 Cookie（`getAll` 出错）时退回 v1.3.0 的老格式只推这两个，日志注明；本地只有访客 Cookie（没有 PSID）时不推
+- **主动同步触发**：除 `__Secure-1PSID` / `__Secure-1PSIDTS` 外，gemini.google.com 的 `OSID` / `__Secure-OSID` 变化也触发（别的谷歌服务自己的 OSID 不算）；`*PSIDCC` / `SIDCC` 等每次请求都变的不触发；防抖与同账号 60 秒最小间隔不变。指纹带上「完整 Cookie」标记与 OSID：从 v1.3.0 升级后第一次轮询会给本浏览器负责的账号补推一次完整 Cookie，之后 OSID 变了也会推
+- **侧边栏 / 日志**：本地 Cookie 区新增「完整 Cookie」一行（读到 N 个、含不含 OSID），没读到 OSID 时提示去打开并登录 gemini.google.com；推送成功的日志写「已同步 N 个 Cookie，含 OSID」。只显示个数和名字，任何 Cookie 值都不明文显示（PSID / PSIDTS 两行照旧默认打码）
+- 没有新增权限（`cookies` + `*://*.google.com/*` 已够）；storage 里仍只存指纹，不存 Cookie 原值
+
 ## v1.3.0
 
 - **主动同步**：后台顶层注册 `chrome.cookies.onChanged`，浏览器轮换 `__Secure-1PSIDTS` / `__Secure-1PSID` 后防抖约 10 秒读取 Cookie（**不刷新标签页**），推给绑定账号（未绑定按 PSID 匹配，匹配不到 / 匹配到多个就跳过，同一原因只记一条日志；绑定账号状态正常而本地 PSID 与中转站记录对不上时也跳过，不覆盖中转站上正常的会话，账号需要救火或手动强制刷新时仍照绑定提交）；只在 Cookie 指纹与上次成功推送不同时推（SHA-256 截断，不另存 Cookie 原值），同一账号至少间隔 60 秒；每次定时轮询兜底补推，防止 service worker 在防抖期间被回收而漏推
