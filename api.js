@@ -63,10 +63,18 @@ async function fetchStatus(cfg) {
   }
 }
 
-async function submitCookies(cfg, accountId, psid, psidts) {
+/**
+ * 提交 cookie：有账号 ID 走 PUT /admin/accounts/{id}/cookies，没有走 POST /admin/reload-cookies。
+ * cookies 是 readGeminiSession() 读到的完整 cookie 列表（字段名照 chrome.cookies.Cookie）：
+ * 非空就在 { psid, psidts } 之外带上 cookies（gemini2api ≥ 1.6.53 用它整套换上，含 gemini.google.com
+ * 的 OSID；旧中转站按 pydantic 默认忽略未知字段，无需版本协商）；为空 / null 时照 1.3.0 只发 psid/psidts。
+ */
+async function submitCookies(cfg, accountId, psid, psidts, cookies = null) {
   const base = normalizeBase(cfg.baseUrl);
   if (!base) return { ok: false, error: t("errNoBaseUrl") };
-  const body = JSON.stringify({ psid, psidts: psidts || "" });
+  const payload = { psid, psidts: psidts || "" };
+  if (Array.isArray(cookies) && cookies.length) payload.cookies = cookies;
+  const body = JSON.stringify(payload);
 
   if (accountId) {
     try {

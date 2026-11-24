@@ -94,3 +94,57 @@ test("导出的常量 / 值格式", () => {
   assert.equal(KEEPALIVE_HEADER, "X-Gemini2API-Keepalive");
   assert.equal(keepaliveHeaderValue("1.2.3"), "gemini2api-plugin/1.2.3");
 });
+
+// v1.4.0：body 在 { psid, psidts } 之外带上完整 cookie 列表（字段名照 chrome.cookies.Cookie）
+const FULL = [
+  { name: "__Secure-1PSID", value: "PSID-VALUE", domain: ".google.com", path: "/", hostOnly: false, secure: true, httpOnly: true, expirationDate: 1900000000 },
+  { name: "__Secure-1PSIDTS", value: "PSIDTS-VALUE", domain: ".google.com", path: "/", hostOnly: false, secure: true, httpOnly: true, expirationDate: 1900000000 },
+  { name: "OSID", value: "OSID-VALUE", domain: "gemini.google.com", path: "/", hostOnly: true, secure: true, httpOnly: true, expirationDate: 1900000000 },
+  { name: "SIDCC", value: "SIDCC-VALUE", domain: ".google.com", path: "/", hostOnly: false, secure: false, httpOnly: false },
+];
+
+test("PUT /admin/accounts/{id}/cookies：带了完整 cookie 时 body 为 { psid, psidts, cookies }", async (t) => {
+  stubChrome(t, "1.4.0");
+  const calls = stubFetch(t);
+  const r = await submitCookies({ baseUrl: BASE, apiKey: "sk-x" }, "acc0", "PSID-VALUE", "PSIDTS-VALUE", FULL);
+  assert.equal(r.ok, true);
+  const [c] = calls;
+  assert.equal(c.method, "PUT");
+  assert.equal(c.headers["X-Gemini2API-Keepalive"], "gemini2api-plugin/1.4.0");
+  assert.deepEqual(JSON.parse(c.body), { psid: "PSID-VALUE", psidts: "PSIDTS-VALUE", cookies: FULL });
+});
+
+test("POST /admin/reload-cookies 同样带完整 cookie", async (t) => {
+  stubChrome(t, "1.4.0");
+  const calls = stubFetch(t);
+  const r = await submitCookies({ baseUrl: BASE, apiKey: "sk-x" }, "", "PSID-VALUE", "PSIDTS-VALUE", FULL);
+  assert.equal(r.ok, true);
+  const [c] = calls;
+  assert.equal(c.method, "POST");
+  assert.equal(c.url, "http://relay.test:5918/admin/reload-cookies");
+  assert.deepEqual(JSON.parse(c.body), { psid: "PSID-VALUE", psidts: "PSIDTS-VALUE", cookies: FULL });
+});
+
+test("cookies 为 null / 空数组（读不到完整 cookie）：body 仍是老格式 { psid, psidts }", async (t) => {
+  stubChrome(t);
+  const calls = stubFetch(t);
+  await submitCookies({ baseUrl: BASE, apiKey: "sk-x" }, "acc0", "P", "T", null);
+  await submitCookies({ baseUrl: BASE, apiKey: "sk-x" }, "acc0", "P", "T", []);
+  await submitCookies({ baseUrl: BASE, apiKey: "sk-x" }, "", "P", null, []);
+  assert.deepEqual(calls.map((c) => JSON.parse(c.body)), [
+    { psid: "P", psidts: "T" },
+    { psid: "P", psidts: "T" },
+    { psid: "P", psidts: "" },
+  ]);
+});
+
+test("错误信息里不回显请求体（cookie 值不进日志）", async (t) => {
+  stubChrome(t);
+  stubFetch(t, () => ({ status: 400, body: { error: { message: "psid mismatch" } } }));
+  const put = await submitCookies({ baseUrl: BASE, apiKey: "sk-x" }, "acc0", "PSID-VALUE", "PSIDTS-VALUE", FULL);
+  const post = await submitCookies({ baseUrl: BASE, apiKey: "sk-x" }, "", "PSID-VALUE", "PSIDTS-VALUE", FULL);
+  for (const r of [put, post]) {
+    assert.equal(r.ok, false);
+    for (const c of FULL) assert.ok(!r.error.includes(c.value), `${c.name} 的值出现在错误信息里：${r.error}`);
+  }
+});
