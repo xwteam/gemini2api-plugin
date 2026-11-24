@@ -36,10 +36,57 @@ function pick(store, keys) {
   return out;
 }
 
+/** jar 里一个条目 → chrome.cookies.Cookie 形状的对象（未写的字段按 .google.com 域 cookie 补） */
+function jarEntries(jar) {
+  const out = [];
+  for (const [name, raw] of Object.entries(jar)) {
+    if (raw == null) continue;
+    for (const one of [].concat(raw)) {
+      const c = typeof one === "string" ? { value: one } : one;
+      out.push({
+        name,
+        domain: ".google.com",
+        path: "/",
+        hostOnly: false,
+        secure: true,
+        httpOnly: true,
+        session: false,
+        expirationDate: 1_900_000_000,
+        storeId: "0",
+        sameSite: "unspecified",
+        ...c,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * 模拟 Chrome 的 URL 匹配：浏览器访问 url 时会发的 cookie（RFC 6265 域匹配 + path 前缀），
+ * 按 path 长度降序（同长保持插入顺序，相当于「先创建的在前」）——与 chrome.cookies.getAll({ url }) 一致。
+ */
+export function visibleCookies(jar, url) {
+  const u = new URL(url);
+  const host = u.hostname;
+  const path = u.pathname || "/";
+  return jarEntries(jar)
+    .filter((c) => {
+      const d = String(c.domain).toLowerCase().replace(/^\./, "");
+      const domainOk = c.hostOnly ? d === host : host === d || host.endsWith("." + d);
+      const p = c.path || "/";
+      const pathOk = path === p || path.startsWith(p.endsWith("/") ? p : p + "/");
+      return domainOk && pathOk;
+    })
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => (b.c.path || "/").length - (a.c.path || "/").length || a.i - b.i)
+    .map(({ c }) => structuredClone(c));
+}
+
 /**
  * @param {object} o
  * @param {object} [o.local]   chrome.storage.local 初始内容
- * @param {object} [o.jar]     cookie 名 → 值（gemini.google.com 能读到的）
+ * @param {object} [o.jar]     cookie 名 → 值（字符串 = .google.com 域 cookie），或名 → { value, domain, hostOnly, … }
+ *                             （chrome.cookies.Cookie 的字段），或名 → 这种对象的数组（同名不同域）；见 visibleCookies
  * @param {object} [o.relay]   中转站假实现：{ accounts, statusCode, putStatus, reloadStatus }，可在用例中途修改
  * @param {Array}  [o.tabs]    chrome.tabs.query 返回的标签页
  */
@@ -55,7 +102,7 @@ export function createFakeChrome({ local = {}, sync = {}, jar = {}, relay = {}, 
     actionClicked: eventTarget(),
     tabUpdated: eventTarget(),
   };
-  const calls = { fetch: [], badgeText: [], badgeColor: [], reload: [], alarmsCreate: [], missingI18n: [] };
+  const calls = { fetch: [], badgeText: [], badgeColor: [], reload: [], alarmsCreate: [], missingI18n: [], cookiesGetAll: [] };
   const tabList = tabs || [{ id: 1, url: "https://gemini.google.com/app" }];
 
   const area = (name) => ({
@@ -124,9 +171,13 @@ export function createFakeChrome({ local = {}, sync = {}, jar = {}, relay = {}, 
     },
     i18n: { getMessage, getUILanguage: () => "en-US" },
     cookies: {
-      async get({ name }) {
-        const value = jar[name];
-        return value == null ? null : { name, value, domain: ".google.com" };
+      // 和真 Chrome 一样：同名多条时取 getAll 顺序里的第一条（path 长者优先、同长取先创建的）
+      async get({ url, name }) {
+        return visibleCookies(jar, url).find((c) => c.name === name) || null;
+      },
+      async getAll(details = {}) {
+        calls.cookiesGetAll.push(structuredClone(details));
+        return details.url ? visibleCookies(jar, details.url) : jarEntries(jar);
       },
       onChanged: events.cookies,
     },
