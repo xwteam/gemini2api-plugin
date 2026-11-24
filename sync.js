@@ -3,7 +3,7 @@
 // 背景：浏览器和中转站共用同一个 Google 会话。浏览器每换一次 __Secure-1PSIDTS，中转站手里的
 // 旧值很快就失效；gemini2api ≥ 1.6.44 对插件推送过的账号不再自己轮换，前提是插件把浏览器换出
 // 的新值及时推过去。这里放「该不该救 / 推给谁 / 该不该推」这些判断，background.js 只管接线。
-import { isSameAccount, COOKIE_PSID, COOKIE_PSIDTS } from "./cookies.js";
+import { isSameAccount, isGeminiHostCookie, COOKIE_PSID, COOKIE_PSIDTS, GEMINI_OSID_COOKIES } from "./cookies.js";
 
 /** Cookie 变化后等这么久再读（合并 PSID/PSIDTS 连续写入）；持续变化时最多等 SYNC_MAX_WAIT_MS */
 export const SYNC_DEBOUNCE_MS = 10_000;
@@ -52,16 +52,29 @@ export function displayStatus(account) {
 }
 
 /**
- * chrome.cookies.onChanged 的事件是否该触发主动同步：
- * 只看 google.com（含子域，按域名标签边界判断）上的 __Secure-1PSIDTS / __Secure-1PSID，
+ * 这个 cookie 变了要不要主动同步（只看名字 + 域）：
+ * - google.com（含子域，按域名标签边界判断）上的 __Secure-1PSIDTS / __Secure-1PSID；
+ * - v1.4.0 起再加 gemini.google.com 自己的 OSID / __Secure-OSID（别的谷歌服务各有一份同名的，不算）。
+ * *PSIDCC / SIDCC 之类每次请求都会变，不触发（否则刷屏）——它们跟着下一次 PSIDTS 轮换一起推过去。
+ */
+export function isSyncTriggerCookie(cookie) {
+  if (!cookie) return false;
+  if (cookie.name === COOKIE_PSIDTS || cookie.name === COOKIE_PSID) {
+    const domain = String(cookie.domain || "").toLowerCase().replace(/^\./, "");
+    return domain === "google.com" || domain.endsWith(".google.com");
+  }
+  if (GEMINI_OSID_COOKIES.includes(cookie.name)) return isGeminiHostCookie(cookie);
+  return false;
+}
+
+/**
+ * chrome.cookies.onChanged 的事件是否该触发主动同步：isSyncTriggerCookie 认的 cookie，
  * 且只要 removed === false 的那一条（overwrite 时 Chrome 先发 removed=true 再发 removed=false）。
  */
 export function isAuthCookieChange(changeInfo) {
   const cookie = changeInfo && changeInfo.cookie;
   if (!cookie || changeInfo.removed !== false) return false;
-  if (cookie.name !== COOKIE_PSIDTS && cookie.name !== COOKIE_PSID) return false;
-  const domain = String(cookie.domain || "").toLowerCase().replace(/^\./, "");
-  return domain === "google.com" || domain.endsWith(".google.com");
+  return isSyncTriggerCookie(cookie);
 }
 
 /**
@@ -118,13 +131,26 @@ export function debounceDelay({ firstAt, now, waitMs = SYNC_DEBOUNCE_MS, maxWait
 }
 
 /**
- * Cookie 指纹：SHA-256(psid + "\n" + psidts) 的前 FINGERPRINT_HEX_LEN 位十六进制。
+ * Cookie 指纹：SHA-256 的前 FINGERPRINT_HEX_LEN 位十六进制。
  * 只用来判断「和上次推的是不是同一份」，storage 里只存它、不另存 cookie 原值。
  * 把 PSID 也算进去：重新登录（PSID 变了）同样要推。没有 PSID 返回 null。
+ * - 没有完整 cookie（cookies 为 null / 空，推的是 1.3.0 那种只有 psid/psidts 的老格式）：
+ *   SHA-256(psid + "\n" + psidts)，与 1.3.0 相同；
+ * - 有完整 cookie：开头加 "full" 标记，再加 gemini.google.com 的 OSID / __Secure-OSID（排序后）。
+ *   与老指纹必然不同——从 1.3.0 升级后第一轮就把完整 cookie 补推一次；只算触发同步的那几个
+ *   （见 isSyncTriggerCookie），*PSIDCC / SIDCC / NID 这些常变的不算，否则每 60 秒推一次。
  */
-export async function cookieFingerprint(psid, psidts) {
+export async function cookieFingerprint(psid, psidts, cookies = null) {
   if (!psid) return null;
-  const data = new TextEncoder().encode(`${psid}\n${psidts || ""}`);
+  let text = `${psid}\n${psidts || ""}`;
+  if (Array.isArray(cookies) && cookies.length) {
+    const osid = cookies
+      .filter((c) => c && GEMINI_OSID_COOKIES.includes(c.name) && isGeminiHostCookie(c))
+      .map((c) => `${c.name}=${c.value}`)
+      .sort();
+    text = ["full", text, ...osid].join("\n");
+  }
+  const data = new TextEncoder().encode(text);
   const digest = await globalThis.crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0"))
     .join("")

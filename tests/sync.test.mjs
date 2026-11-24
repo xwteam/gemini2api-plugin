@@ -7,6 +7,7 @@ import {
   displayStatus,
   relayReportsSessionExpiry,
   isAuthCookieChange,
+  isSyncTriggerCookie,
   pickTarget,
   shouldPush,
   debounceDelay,
@@ -133,10 +134,43 @@ describe("isAuthCookieChange", () => {
       assert.equal(isAuthCookieChange(ev({ domain })), false, String(domain));
     }
   });
+  test("v1.4.0：gemini.google.com 的 OSID / __Secure-OSID 写入也触发", () => {
+    for (const name of ["OSID", "__Secure-OSID"]) {
+      assert.equal(isAuthCookieChange(ev({ name, domain: "gemini.google.com" })), true, name);
+      assert.equal(isAuthCookieChange(ev({ name, domain: ".gemini.google.com" })), true, name);
+      assert.equal(isAuthCookieChange(ev({ name, domain: "gemini.google.com" }, { removed: true, cause: "overwrite" })), false, name);
+    }
+  });
+  test("别的谷歌服务自己的 OSID 不触发（mail / myaccount / accounts / .google.com）", () => {
+    for (const domain of ["mail.google.com", "myaccount.google.com", "accounts.google.com", ".google.com", "google.com", "evilgemini.google.com", "gemini.google.com.evil.net"]) {
+      assert.equal(isAuthCookieChange(ev({ name: "OSID", domain })), false, domain);
+      assert.equal(isAuthCookieChange(ev({ name: "__Secure-OSID", domain })), false, domain);
+    }
+    assert.equal(isAuthCookieChange(ev({ name: "osid", domain: "gemini.google.com" })), false, "名字区分大小写");
+  });
+  test("每次请求都会变的 *PSIDCC / SIDCC 等不触发（否则刷屏）", () => {
+    for (const name of ["SIDCC", "__Secure-1PSIDCC", "__Secure-3PSIDCC", "NID", "AEC", "COMPASS", "__Secure-3PSIDTS", "SAPISID"]) {
+      assert.equal(isAuthCookieChange(ev({ name })), false, name);
+      assert.equal(isAuthCookieChange(ev({ name, domain: "gemini.google.com" })), false, `${name}@gemini`);
+    }
+  });
   test("畸形事件 → false", () => {
     assert.equal(isAuthCookieChange(null), false);
     assert.equal(isAuthCookieChange({}), false);
     assert.equal(isAuthCookieChange({ removed: false }), false);
+  });
+});
+
+describe("isSyncTriggerCookie（侧边栏刷新 Cookie 区也用它）", () => {
+  test("只看名字 + 域，不看 removed", () => {
+    assert.equal(isSyncTriggerCookie({ name: "__Secure-1PSIDTS", domain: ".google.com" }), true);
+    assert.equal(isSyncTriggerCookie({ name: "__Secure-1PSID", domain: "google.com" }), true);
+    assert.equal(isSyncTriggerCookie({ name: "OSID", domain: "gemini.google.com" }), true);
+    assert.equal(isSyncTriggerCookie({ name: "__Secure-OSID", domain: "gemini.google.com" }), true);
+    assert.equal(isSyncTriggerCookie({ name: "OSID", domain: "mail.google.com" }), false);
+    assert.equal(isSyncTriggerCookie({ name: "SIDCC", domain: ".google.com" }), false);
+    assert.equal(isSyncTriggerCookie(null), false);
+    assert.equal(isSyncTriggerCookie({}), false);
   });
 });
 
@@ -286,6 +320,54 @@ describe("cookieFingerprint", () => {
     assert.equal(await cookieFingerprint(null, PSIDTS), null);
     assert.equal(await cookieFingerprint("", PSIDTS), null);
     assert.equal(await cookieFingerprint(PSID, null), await cookieFingerprint(PSID, ""));
+  });
+});
+
+describe("cookieFingerprint（v1.4.0 带完整 cookie）", () => {
+  const ck = (name, value, domain = ".google.com") => ({ name, value, domain, path: "/", hostOnly: !domain.startsWith("."), secure: true, httpOnly: true });
+  const full = (over = {}) => [
+    ck("__Secure-1PSID", PSID),
+    ck("__Secure-1PSIDTS", PSIDTS),
+    ck("SID", over.SID ?? "sid-1"),
+    ck("__Secure-1PSIDCC", over.PSIDCC ?? "psidcc-1"),
+    ck("SIDCC", over.SIDCC ?? "sidcc-1"),
+    ck("NID", over.NID ?? "nid-1"),
+    ck("OSID", over.OSID ?? "osid-1", "gemini.google.com"),
+    ck("__Secure-OSID", over.SOSID ?? "sosid-1", "gemini.google.com"),
+    ck("OSID", over.MAIL_OSID ?? "mail-osid-1", "mail.google.com"),
+  ];
+
+  test("与只有 PSID/PSIDTS 的老指纹不同：从 1.3.0 升级后第一轮会把完整 cookie 补推一次", async () => {
+    assert.notEqual(await cookieFingerprint(PSID, PSIDTS, full()), await cookieFingerprint(PSID, PSIDTS));
+  });
+  test("cookies 为 null / 空数组 → 与老指纹相同（推的内容和 1.3.0 一样）", async () => {
+    const legacy = await cookieFingerprint(PSID, PSIDTS);
+    assert.equal(await cookieFingerprint(PSID, PSIDTS, null), legacy);
+    assert.equal(await cookieFingerprint(PSID, PSIDTS, []), legacy);
+  });
+  test("gemini.google.com 的 OSID / __Secure-OSID 变了 → 指纹变", async () => {
+    const a = await cookieFingerprint(PSID, PSIDTS, full());
+    assert.notEqual(await cookieFingerprint(PSID, PSIDTS, full({ OSID: "osid-2" })), a);
+    assert.notEqual(await cookieFingerprint(PSID, PSIDTS, full({ SOSID: "sosid-2" })), a);
+    assert.notEqual(await cookieFingerprint(PSID, PSIDTS + "x", full()), a);
+    assert.notEqual(await cookieFingerprint(OTHER_PSID, PSIDTS, full()), a);
+  });
+  test("*PSIDCC / SIDCC / NID 等常变 cookie、别的服务的 OSID 变了 → 指纹不变（不刷屏）", async () => {
+    const a = await cookieFingerprint(PSID, PSIDTS, full());
+    for (const over of [{ PSIDCC: "psidcc-2" }, { SIDCC: "sidcc-2" }, { NID: "nid-2" }, { SID: "sid-2" }, { MAIL_OSID: "mail-osid-2" }]) {
+      assert.equal(await cookieFingerprint(PSID, PSIDTS, full(over)), a, JSON.stringify(over));
+    }
+  });
+  test("与 cookie 顺序无关；有没有 OSID 指纹不同（补上 OSID 后会再推一次）", async () => {
+    const a = await cookieFingerprint(PSID, PSIDTS, full());
+    assert.equal(await cookieFingerprint(PSID, PSIDTS, full().reverse()), a);
+    const noOsid = full().filter((c) => !(c.domain === "gemini.google.com"));
+    assert.notEqual(await cookieFingerprint(PSID, PSIDTS, noOsid), a);
+  });
+  test("16 位十六进制，不含任何 cookie 原值", async () => {
+    const a = await cookieFingerprint(PSID, PSIDTS, full());
+    assert.match(a, /^[0-9a-f]{16}$/);
+    for (const c of full()) assert.ok(!c.value.includes(a) && !a.includes(c.value), c.name);
   });
 });
 
