@@ -41,7 +41,7 @@
 > 本插件与 Google 无关。通过浏览器扩展读取 Gemini 登录 Cookie 实现功能，可能不符合 Google 服务条款。使用风险自负，作者不对任何账号处罚或数据丢失承担责任。
 
 > [!IMPORTANT]
-> 本插件**不保证 100% 突破 2 小时限制**。本地浏览器与中转站共用同一账号会话：v1.3.0 起插件会把浏览器轮换出的新 Cookie 及时同步给中转站，配合 **gemini2api ≥ v1.6.44** 时中转站不再自己轮换这些账号，避免两边互相顶掉（v1.6.41～v1.6.43 的中转站仍会自己轮换）。实际效果需安装后观察。欢迎通过 [Issue](https://github.com/xwteam/gemini2api-plugin/issues) 分享你的实测结果。
+> 本插件**不保证 100% 突破 2 小时限制**。本地浏览器与中转站共用同一账号会话：v1.3.0 起插件会把浏览器轮换出的新 Cookie 及时同步给中转站，配合 **gemini2api ≥ v1.6.44** 时中转站不再自己轮换这些账号，避免两边互相顶掉（v1.6.41～v1.6.43 的中转站仍会自己轮换）。**谷歌 2026-11-20 改版后，只给中转站 `__Secure-1PSID` / `__Secure-1PSIDTS` 已经登不上 Gemini**：v1.4.0 起插件推送浏览器访问 Gemini 时的完整 Cookie（含 gemini.google.com 自己的 `OSID`），请配合 **gemini2api ≥ v1.6.53** 使用。实际效果需安装后观察。欢迎通过 [Issue](https://github.com/xwteam/gemini2api-plugin/issues) 分享你的实测结果。
 
 ---
 
@@ -52,7 +52,8 @@
 ```
 ① 主动同步（v1.3.0）：浏览器自己轮换了 Cookie → 及时转交中转站
 chrome.cookies.onChanged 发现 __Secure-1PSIDTS / __Secure-1PSID 变化
-  → 等约 10 秒合并连续变化 → 读取当前 Cookie（不刷新标签页）
+  （v1.4.0 起 gemini.google.com 的 OSID / __Secure-OSID 变化也算；*PSIDCC 这类每次请求都变的不算）
+  → 等约 10 秒合并连续变化 → 读取完整 Cookie（不刷新标签页）
   → 目标账号：侧边栏绑定的账号 ID；没绑定就按 PSID 匹配
   → 与上次成功推送的不同、且距上次推送 ≥ 60 秒 → PUT /admin/accounts/{id}/cookies
   （每次定时轮询也补查一次，防止 service worker 被回收而漏推）
@@ -62,15 +63,18 @@ chrome.cookies.onChanged 发现 __Secure-1PSIDTS / __Secure-1PSID 变化
   └─ expired（过期），或 v1.6.41～v1.6.43 的中转站仍报 active 但 is_healthy=false（会话失效）
         → 都在冷却期、或（未绑定账号 ID 时）本地 PSID 都对不上 → 不刷新，等下一轮
         → 刷新本地已打开的 gemini.google.com 标签页
-        → chrome.cookies 读取新的 __Secure-1PSID / __Secure-1PSIDTS
+        → chrome.cookies 读取新的完整 Cookie（__Secure-1PSID / __Secure-1PSIDTS / OSID……）
         → PUT /admin/accounts/{id}/cookies 提交给中转站
         → 下一轮轮询验证是否恢复 active
 ```
 
 插件自己从不轮换 Cookie：主动同步只是把浏览器已经换好的值转交给中转站；平时不操作浏览器，**只有检测到过期 / 会话失效、且确有账号要提交时才刷新一次标签页**，并设冷却期防止重复刷新。两条线提交时都带请求头 `X-Gemini2API-Keepalive: gemini2api-plugin/<版本>`：**gemini2api ≥ v1.6.44** 据此把该账号标为「浏览器保活」、不再由服务端轮换，避免浏览器与中转站互相顶掉对方的 PSIDTS；旧版中转站会忽略这个头。
 
+**完整 Cookie（v1.4.0）**：谷歌 2026-11-20 改版后，只带 `__Secure-1PSID` / `__Secure-1PSIDTS` 打开 Gemini 会被 302 到谷歌登录页——中转站以为初始化成功，实际是未登录访客（只剩「Auto」一个模型，别的模型报 400）。所以两条线现在都用 `chrome.cookies.getAll({ url: "https://gemini.google.com/app" })` 读浏览器访问 Gemini 时会发的**全部** Cookie：`.google.com` 域的 SID / HSID / SSID / APISID / SAPISID / `__Secure-1PAPISID` / `__Secure-3PSID` / `*PSIDCC` 等，加上 gemini.google.com 自己的 host-only Cookie `OSID` / `__Secure-OSID`，连同各自的域、路径、过期时间等，在 `{ psid, psidts }` 之外以 `cookies` 字段一起提交（字段名照 `chrome.cookies.Cookie`）。gemini2api ≥ v1.6.53 按域保存、按域发送这些 Cookie；更旧的中转站会忽略这个字段，和 v1.3.0 一样只用 PSID/PSIDTS。
+
 ## 🌟 核心特性
 
+- **完整 Cookie（v1.4.0）**：推送浏览器访问 Gemini 时的全部 Cookie（含 gemini.google.com 的 `OSID`），适配谷歌 2026-11-20 改版；主动同步、救火、强制刷新都带，gemini.google.com 的 OSID 变化也会触发主动同步；需要 gemini2api ≥ v1.6.53
 - **主动同步（v1.3.0）**：浏览器轮换 Cookie 后约 10 秒内推给中转站；只在值变化时推，同一账号至少间隔 60 秒，定时轮询兜底补推；插件自身不轮换 Cookie、不刷新页面
 - **救火**：账号过期，或 v1.6.41～v1.6.43 的中转站仍报 active 但 `is_healthy=false`（会话失效）时，刷新标签页并提交新 Cookie；冷却期内、或未绑定账号 ID 且本地 PSID 对不上时不刷新；其余时间不操作浏览器
 - **读取 HttpOnly Cookie**：借助扩展的 `chrome.cookies` 权限读取网页 JS 读不到的 `__Secure-` 认证 Cookie
@@ -98,6 +102,9 @@ chrome.cookies.onChanged 发现 __Secure-1PSIDTS / __Secure-1PSID 变化
 5. 安装后点击插件图标 → 在右侧打开侧边栏：
    - 顶部 **绑定本浏览器负责的账号 ID**（如 `account-0`）
    - 右上角 **中转站设置** 填写地址和 API Key（见下文）
+
+> [!NOTE]
+> **从旧版升级**：`git pull` 后在扩展管理页点本插件的「重新加载」。v1.4.0 需要配合 gemini2api ≥ v1.6.53（中转站要能接收完整 Cookie）；升级后第一次轮询会给本浏览器负责的账号补推一次完整 Cookie。
 
 ## ⚙ 配置说明
 
@@ -127,6 +134,7 @@ chrome.cookies.onChanged 发现 __Secure-1PSIDTS / __Secure-1PSID 变化
 > - v1.6.41～v1.6.43 对谷歌会话已失效的账号仍报 `active`，只把 `is_healthy` 置为 false；插件（v1.3.0 起）按「会话失效」去救。
 > - **v1.6.44 起**，被谷歌打回登录页的账号直接报 `expired`；仍报 `active` 但 `is_healthy` 为 false 只表示中转站自身暂时不健康（网络抖动、5xx、刚启动等），换 Cookie 也没用，插件显示「不健康」、不刷新也不提交（插件看 `/admin/status` 有没有 `keepalive_mode` 字段来区分新旧版本）。
 > - **v1.6.44 起**，插件推送过 Cookie 的账号会被标为「浏览器保活」（`/admin/status` 里 `keepalive_mode` 为 `browser`），服务端不再轮换它。想让某个账号改回服务端轮换（例如改用无痕窗口取的 Cookie），先在对应浏览器里停用本插件，再到面板手动更新 Cookie——否则插件下次同步又会把它标回浏览器保活。
+> - **v1.6.53 起**接收插件推来的完整 Cookie（`PUT /admin/accounts/{id}/cookies` 与 `POST /admin/reload-cookies` 的 `cookies` 字段），并把被打回谷歌登录页的账号判为认证失败。谷歌 2026-11-20 改版后，更旧的中转站只拿 PSID/PSIDTS 会以未登录访客身份运行（只剩「Auto」模型），请同时升级中转站与本插件（≥ v1.4.0）。
 
 > [!IMPORTANT]
 > **一个浏览器实例只能保活一个账号。** 浏览器对 `gemini.google.com` 只有一份 Cookie，插件读到的永远是当前登录的那个账号。所以：
@@ -155,7 +163,7 @@ chrome.cookies.onChanged 发现 __Secure-1PSIDTS / __Secure-1PSID 变化
 点击工具栏图标会在浏览器**右侧打开固定侧边栏**（常驻不消失，方便长时间盯着保活状态和日志）。
 
 - **侧边栏面板**：顶部绑定本浏览器负责的**账号 ID**；下方显示账号活动 / 过期 / 会话失效 / 不健康状态、PSID 打码预览、最近动作日志（含主动同步记录）；`立即检查` / `强制刷新提交`；右上角 **中转站设置** 进入连接配置页。
-- **本地 Cookie 区**：显示本地浏览器当前读到的 `__Secure-1PSID` / `__Secure-1PSIDTS`（默认打码，可点 `👁 显示完整` 看全值），并提示是否与中转站账号匹配——方便排查“到底有没有读到 Cookie、是不是对的账号”。
+- **本地 Cookie 区**：显示本地浏览器当前读到的 `__Secure-1PSID` / `__Secure-1PSIDTS`（默认打码，可点 `👁 显示完整` 看全值），并提示是否与中转站账号匹配——方便排查“到底有没有读到 Cookie、是不是对的账号”。v1.4.0 起多一行「完整 Cookie」：显示读到几个、含不含 gemini.google.com 的 `OSID`（只显示个数，任何 Cookie 值都不显示；缺 OSID 时提示去打开并登录 gemini.google.com）。
 - **图标角标**：
   - 蓝色数字 = 活动账号数
   - 红色数字 = 过期或会话失效（待救）的账号数
@@ -165,14 +173,14 @@ chrome.cookies.onChanged 发现 __Secure-1PSIDTS / __Secure-1PSID 变化
 
 | 权限 | 用途 |
 |------|------|
-| `cookies` + `*://*.google.com/*` | 读取 Gemini 的 HttpOnly 认证 Cookie，并监听其变化以主动同步 |
+| `cookies` + `*://*.google.com/*` | 读取浏览器访问 Gemini 时的全部 Cookie（含 HttpOnly 与 gemini.google.com 的 `OSID`），并监听其变化以主动同步 |
 | `tabs` | 查找并刷新 gemini.google.com 标签页 |
 | `storage` | 保存配置、动作日志与同步记录（只存哈希指纹） |
 | `alarms` | 定时轮询 |
 | 中转站域权限 | 保存设置时按你填写的地址动态申请 |
 
 > [!NOTE]
-> **隐私承诺**：API Key 和读取到的 Cookie 仅保存在本地浏览器，且只发送给你配置的中转站地址，绝不发往任何第三方。v1.3.0 的主动同步没有新增任何权限，同步记录只保存 Cookie 的 SHA-256 截断指纹，不另存 Cookie 原值。
+> **隐私承诺**：API Key 和读取到的 Cookie 仅保存在本地浏览器，且只发送给你配置的中转站地址，绝不发往任何第三方。v1.3.0 的主动同步、v1.4.0 的完整 Cookie 都没有新增任何权限，同步记录只保存 Cookie 的 SHA-256 截断指纹，不另存 Cookie 原值。
 
 ## ❓ 常见问题
 
@@ -185,8 +193,11 @@ A：说明本地浏览器当前也未登录 Gemini，或登录的不是中转站
 **Q：状态一直显示过期、提交后不恢复？**
 A：可能是 Google 已吊销该账号的主会话（PSID 被吊销无法靠刷新恢复）。此时需要重新登录 Gemini 获取全新 Cookie。
 
+**Q：中转站只剩「Auto」一个模型 / 别的模型报 400 / 提示需要完整 Cookie（含 OSID）？**
+A：这是谷歌 2026-11-20 改版造成的：只有 `__Secure-1PSID` / `__Secure-1PSIDTS` 已经登不上 Gemini。把中转站升级到 gemini2api ≥ v1.6.53、本插件升级到 v1.4.0，在本浏览器打开并登录 gemini.google.com，确认侧边栏「完整 Cookie」一行显示含 OSID，再点一次「强制刷新提交」（不点也行，升级后的第一次轮询会自动补推一次完整 Cookie）。
+
 **Q：账号没过期，插件为什么也在提交 Cookie？**
-A：这是 v1.3.0 的主动同步。浏览器与中转站共用同一个 Google 会话，浏览器轮换出新的 PSIDTS 后，中转站手里的旧值很快会失效，所以插件把新值及时转交过去（只在值变化时推，同一账号至少间隔 60 秒，不刷新标签页）。配合 gemini2api ≥ v1.6.44，中转站会停止自己轮换这个账号，避免两边互相顶掉。
+A：这是 v1.3.0 的主动同步。浏览器与中转站共用同一个 Google 会话，浏览器轮换出新的 PSIDTS 后，中转站手里的旧值很快会失效，所以插件把新值及时转交过去（只在值变化时推，同一账号至少间隔 60 秒，不刷新标签页）。配合 gemini2api ≥ v1.6.44，中转站会停止自己轮换这个账号，避免两边互相顶掉。v1.4.0 起推的是完整 Cookie，gemini.google.com 的 OSID 变化也会推（`*PSIDCC` 这类每次请求都变的不单独推，跟着下一次推送一起带过去）。
 
 **Q：侧边栏显示「会话失效」或「不健康」是什么意思？**
 A：两者都是中转站仍报 `active` 但 `is_healthy` 为 false，区别在中转站版本。「会话失效」只出现在 gemini2api v1.6.41～v1.6.43：这几版对谷歌会话已失效的账号就是这样报的，插件把它和「已过期」一样处理——刷新标签页并提交新 Cookie（这几版里网络抖动等原因造成的不健康也会被当成会话失效）。v1.6.44 起被打回登录页的账号直接报 `expired`，仍报 `active` 但不健康只说明中转站自身有问题（网络抖动、5xx、刚启动等），并非登录失效：插件显示「不健康」，不刷新标签页也不提交，请到中转站面板 / 日志排查。

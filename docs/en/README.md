@@ -41,7 +41,7 @@
 > Not affiliated with Google. It reads Gemini login cookies via a browser extension, which may violate Google's Terms of Service. Use at your own risk. The author is not responsible for account penalties or data loss.
 
 > [!IMPORTANT]
-> **Does not guarantee breaking the 2-hour limit 100% of the time.** Your local browser and relay share the same account session: since v1.3.0 the extension forwards cookies the browser rotates to the relay right away, and with **gemini2api ≥ v1.6.44** the relay stops rotating those accounts itself, so the two sides no longer knock each other out (relays on v1.6.41–v1.6.43 still rotate on their own). Results vary — share your findings via [Issue](https://github.com/xwteam/gemini2api-plugin/issues).
+> **Does not guarantee breaking the 2-hour limit 100% of the time.** Your local browser and relay share the same account session: since v1.3.0 the extension forwards cookies the browser rotates to the relay right away, and with **gemini2api ≥ v1.6.44** the relay stops rotating those accounts itself, so the two sides no longer knock each other out (relays on v1.6.41–v1.6.43 still rotate on their own). **Since Google's 2026-11-20 change, `__Secure-1PSID` / `__Secure-1PSIDTS` alone no longer sign the relay in to Gemini**: from v1.4.0 the extension pushes the full cookie set the browser sends to Gemini (including gemini.google.com's own `OSID`) — use it with **gemini2api ≥ v1.6.53**. Results vary — share your findings via [Issue](https://github.com/xwteam/gemini2api-plugin/issues).
 
 ---
 
@@ -52,7 +52,8 @@ Relay servers on datacenter IPs often see Google sessions expire in ~2 hours. **
 ```
 ① Active sync (v1.3.0): the browser rotated its cookies → forward them to the relay
 chrome.cookies.onChanged sees __Secure-1PSIDTS / __Secure-1PSID change
-  → wait ~10s to coalesce bursts → read current cookies (no tab refresh)
+  (from v1.4.0 also gemini.google.com's OSID / __Secure-OSID; per-request cookies like *PSIDCC don't count)
+  → wait ~10s to coalesce bursts → read the full cookie set (no tab refresh)
   → target: the Account ID bound in the sidebar; if none, match by PSID
   → differs from the last successful push and ≥ 60s since the last push
        → PUT /admin/accounts/{id}/cookies
@@ -63,15 +64,18 @@ chrome.cookies.onChanged sees __Secure-1PSIDTS / __Secure-1PSID change
   └─ expired, or a v1.6.41–v1.6.43 relay still says active with is_healthy=false (session invalid)
         → all in cooldown, or (without an Account ID) no local PSID match → no refresh, wait for the next poll
         → refresh an open gemini.google.com tab locally
-        → chrome.cookies reads new __Secure-1PSID / __Secure-1PSIDTS
+        → chrome.cookies reads the new full cookie set (__Secure-1PSID / __Secure-1PSIDTS / OSID …)
         → PUT /admin/accounts/{id}/cookies to submit to relay
         → next poll verifies active again
 ```
 
 The extension never rotates cookies itself: active sync only hands over what the browser already rotated. Otherwise it leaves the browser alone — **it refreshes the tab once only when expiry or an invalid session is detected and an account is actually due for a submit**, with a cooldown to avoid repeated refreshes. Both paths send the header `X-Gemini2API-Keepalive: gemini2api-plugin/<version>`; **gemini2api ≥ v1.6.44** then marks the account as browser-kept-alive and stops rotating it server-side, so the browser and relay stop invalidating each other's PSIDTS. Older relays ignore the header.
 
+**Full cookie set (v1.4.0)**: since Google's 2026-11-20 change, opening Gemini with only `__Secure-1PSID` / `__Secure-1PSIDTS` gets a 302 to Google's sign-in page — the relay thinks it initialized fine but is really an anonymous guest (only the "Auto" model is left; other models return 400). So both paths now use `chrome.cookies.getAll({ url: "https://gemini.google.com/app" })` to read **every** cookie the browser sends to Gemini — `.google.com` cookies such as SID / HSID / SSID / APISID / SAPISID / `__Secure-1PAPISID` / `__Secure-3PSID` / `*PSIDCC`, plus gemini.google.com's own host-only `OSID` / `__Secure-OSID` — and submit them with their domain, path, expiry and flags in a `cookies` field next to `{ psid, psidts }` (field names follow `chrome.cookies.Cookie`). gemini2api ≥ v1.6.53 stores and sends them per domain; older relays ignore the field and keep using PSID/PSIDTS as with v1.3.0.
+
 ## 🌟 Core Features
 
+- **Full cookie set (v1.4.0)**: pushes every cookie the browser sends to Gemini (including gemini.google.com's `OSID`), adapting to Google's 2026-11-20 change; used by active sync, rescue and force refresh, and a change to Gemini's OSID also triggers active sync; needs gemini2api ≥ v1.6.53
 - **Active sync (v1.3.0)**: pushes cookies to the relay ~10s after the browser rotates them — only when they changed, at most once per 60s per account, with a catch-up on every poll; the extension itself never rotates cookies or reloads pages for this
 - **Rescue**: when an account expires, or a v1.6.41–v1.6.43 relay still says active but `is_healthy=false` (session invalid), refreshes the tab and submits new cookies — but not while in cooldown, or (without an Account ID) when the local PSID matches none of them; otherwise it leaves the browser alone
 - **HttpOnly cookie access**: uses `chrome.cookies` to read `__Secure-` auth cookies that page JS cannot
@@ -99,6 +103,9 @@ The extension never rotates cookies itself: active sync only hands over what the
 5. Click the extension icon → open the sidebar:
    - At the top, **bind the Account ID** this browser owns (e.g. `account-0`)
    - **Relay settings** (top right) for URL and API Key (see below)
+
+> [!NOTE]
+> **Upgrading**: after `git pull`, click **Reload** on this extension in the extensions page. v1.4.0 needs gemini2api ≥ v1.6.53 (so the relay can accept the full cookie set); the first poll after the upgrade pushes the full set once to the account this browser looks after.
 
 ## ⚙ Configuration
 
@@ -128,6 +135,7 @@ Click **Test connection**, then **Save** (browser will request host permission f
 > - v1.6.41–v1.6.43 keep reporting `active` for accounts whose Google session is dead and only set `is_healthy` to false; since v1.3.0 the extension rescues those as "session invalid".
 > - **From v1.6.44**, accounts bounced to Google's login page are reported as `expired`; `active` with `is_healthy` false then only means the relay itself is temporarily unhealthy (network hiccups, 5xx, still starting up…), which new cookies won't fix — the extension shows "Unhealthy" and neither refreshes nor submits (it tells new relays from old ones by the `keepalive_mode` field in `/admin/status`).
 > - **From v1.6.44**, accounts the extension has pushed cookies to are marked as browser-kept-alive (`keepalive_mode` is `browser` in `/admin/status`) and the relay stops rotating them. To hand an account back to server-side rotation (e.g. you switched to cookies from an incognito window), first disable this extension in that browser, then update the cookies manually in the panel — otherwise the next sync marks it browser-kept-alive again.
+> - **From v1.6.53**, the relay accepts the full cookie set from the extension (the `cookies` field of `PUT /admin/accounts/{id}/cookies` and `POST /admin/reload-cookies`) and treats accounts bounced to Google's sign-in page as an auth failure. Since Google's 2026-11-20 change, older relays given only PSID/PSIDTS run as an anonymous guest (only the "Auto" model) — upgrade the relay and this extension (≥ v1.4.0) together.
 
 > [!IMPORTANT]
 > **One browser instance can keep alive only one account.** The browser has a single cookie jar for `gemini.google.com`; the extension always reads the currently logged-in account. Therefore:
@@ -156,7 +164,7 @@ Each instance: same **Relay settings** (URL + API Key); **different Account ID**
 Click the toolbar icon to open a **fixed right sidebar** (stays visible for monitoring).
 
 - **Sidebar**: bind **Account ID** at top; account active / expired / session-invalid / unhealthy status, masked PSID, action log (including active-sync entries); **Check now** / **Force refresh & submit**; **Relay settings** (top right) for connection config.
-- **Local cookies**: shows `__Secure-1PSID` / `__Secure-1PSIDTS` from this browser (masked by default; **👁 Show full** for full values) and whether they match relay accounts.
+- **Local cookies**: shows `__Secure-1PSID` / `__Secure-1PSIDTS` from this browser (masked by default; **👁 Show full** for full values) and whether they match relay accounts. From v1.4.0 a **Full cookie set** row shows how many cookies were read and whether gemini.google.com's `OSID` is among them (count only — no cookie values are shown; if OSID is missing it tells you to open and sign in at gemini.google.com).
 - **Badge**:
   - Blue number = active accounts
   - Red number = accounts expired or with an invalid session (need rescue)
@@ -166,14 +174,14 @@ Click the toolbar icon to open a **fixed right sidebar** (stays visible for moni
 
 | Permission | Purpose |
 |------------|---------|
-| `cookies` + `*://*.google.com/*` | Read Gemini HttpOnly auth cookies and watch them change for active sync |
+| `cookies` + `*://*.google.com/*` | Read every cookie the browser sends to Gemini (including HttpOnly ones and gemini.google.com's `OSID`) and watch them change for active sync |
 | `tabs` | Find and refresh gemini.google.com tabs |
 | `storage` | Save settings, action logs and sync records (hash fingerprints only) |
 | `alarms` | Scheduled polling |
 | Relay host permission | Requested dynamically when you save settings |
 
 > [!NOTE]
-> **Privacy**: API Key and cookies are stored only locally and sent only to your configured relay — never to third parties. Active sync in v1.3.0 adds no permissions; sync records store only a truncated SHA-256 fingerprint, never the cookie values.
+> **Privacy**: API Key and cookies are stored only locally and sent only to your configured relay — never to third parties. Active sync in v1.3.0 and the full cookie set in v1.4.0 add no permissions; sync records store only a truncated SHA-256 fingerprint, never the cookie values.
 
 ## ❓ FAQ
 
@@ -186,8 +194,11 @@ A: This browser is not logged into Gemini, or logged into a different account th
 **Q: Status stays expired after submit?**
 A: Google may have revoked the main session (PSID cannot be recovered by refresh). Log in again for fresh cookies.
 
+**Q: The relay only shows the "Auto" model / other models return 400 / it asks for the full cookie set (with OSID)?**
+A: That's Google's 2026-11-20 change: `__Secure-1PSID` / `__Secure-1PSIDTS` alone no longer sign in to Gemini. Upgrade the relay to gemini2api ≥ v1.6.53 and this extension to v1.4.0, open and sign in at gemini.google.com in this browser, check that the sidebar's **Full cookie set** row says incl. OSID, then click **Force refresh & submit** once (optional — the first poll after the upgrade pushes the full set anyway).
+
 **Q: Why does the extension submit cookies when nothing has expired?**
-A: That is active sync (v1.3.0). Your browser and the relay share one Google session; once the browser rotates PSIDTS, the relay's copy soon stops working, so the extension forwards the new value (only when it changed, at most once per 60s per account, without refreshing the tab). With gemini2api ≥ v1.6.44 the relay then stops rotating that account itself, so the two sides stop knocking each other out.
+A: That is active sync (v1.3.0). Your browser and the relay share one Google session; once the browser rotates PSIDTS, the relay's copy soon stops working, so the extension forwards the new value (only when it changed, at most once per 60s per account, without refreshing the tab). With gemini2api ≥ v1.6.44 the relay then stops rotating that account itself, so the two sides stop knocking each other out. From v1.4.0 it pushes the full cookie set, and a change to gemini.google.com's OSID is pushed too (per-request cookies like `*PSIDCC` aren't pushed on their own; they ride along with the next push).
 
 **Q: What do "Session invalid" and "Unhealthy" in the sidebar mean?**
 A: Both mean the relay still reports `active` with `is_healthy` false; which one you see depends on the relay version. "Session invalid" only appears with gemini2api v1.6.41–v1.6.43, which report dead Google sessions this way; the extension treats it like "Expired" — it refreshes the tab and submits new cookies (on those versions, unhealthiness from other causes such as network hiccups is treated the same way). From v1.6.44, accounts bounced to the login page are reported as `expired`, so `active` but unhealthy only means the relay itself has a problem (network hiccups, 5xx, still starting up…), not a dead login: the extension shows "Unhealthy", neither refreshes the tab nor submits, and you should check the relay's panel / logs.

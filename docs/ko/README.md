@@ -41,7 +41,7 @@
 > Google과 무관합니다. 브라우저 확장으로 Gemini 로그인 Cookie를 읽으므로 Google 이용약관 위반 가능성이 있습니다. 본인 책임 하에 사용하세요.
 
 > [!IMPORTANT]
-> **2시간 제한을 100% 돌파한다고 보장하지 않습니다.** 로컬 브라우저와 중계가 동일 계정 세션을 공유합니다. v1.3.0부터는 브라우저가 로테이션한 새 Cookie를 중계에 바로 동기화하며, **gemini2api ≥ v1.6.44**와 함께 쓰면 중계가 해당 계정을 직접 로테이션하지 않아 서로 밀어내는 일을 막습니다(v1.6.41~v1.6.43 중계는 여전히 자체 로테이션). [Issue](https://github.com/xwteam/gemini2api-plugin/issues)에 실측 결과 공유 환영.
+> **2시간 제한을 100% 돌파한다고 보장하지 않습니다.** 로컬 브라우저와 중계가 동일 계정 세션을 공유합니다. v1.3.0부터는 브라우저가 로테이션한 새 Cookie를 중계에 바로 동기화하며, **gemini2api ≥ v1.6.44**와 함께 쓰면 중계가 해당 계정을 직접 로테이션하지 않아 서로 밀어내는 일을 막습니다(v1.6.41~v1.6.43 중계는 여전히 자체 로테이션). **Google의 2026-11-20 변경 이후 `__Secure-1PSID` / `__Secure-1PSIDTS`만으로는 중계가 Gemini에 로그인할 수 없습니다**. v1.4.0부터 확장은 브라우저가 Gemini에 보내는 전체 Cookie(gemini.google.com 자체의 `OSID` 포함)를 제출하므로 **gemini2api ≥ v1.6.53**과 함께 쓰세요. [Issue](https://github.com/xwteam/gemini2api-plugin/issues)에 실측 결과 공유 환영.
 
 ---
 
@@ -52,7 +52,8 @@
 ```
 ① 능동 동기화(v1.3.0): 브라우저가 Cookie를 로테이션 → 중계로 전달
 chrome.cookies.onChanged 가 __Secure-1PSIDTS / __Secure-1PSID 변경 감지
-  → 약 10초 기다려 연속 변경 병합 → 현재 Cookie 읽기(탭 새로고침 없음)
+  (v1.4.0부터 gemini.google.com의 OSID / __Secure-OSID 변경도 포함, *PSIDCC처럼 요청마다 바뀌는 것은 제외)
+  → 약 10초 기다려 연속 변경 병합 → 전체 Cookie 읽기(탭 새로고침 없음)
   → 대상: 사이드바에 바인딩한 계정 ID, 없으면 PSID 매칭
   → 마지막 성공 제출과 다르고 마지막 제출 후 ≥ 60초 → PUT /admin/accounts/{id}/cookies
   (service worker가 대기 중 중단돼도 주기 폴링마다 다시 확인해 보충)
@@ -62,15 +63,18 @@ chrome.cookies.onChanged 가 __Secure-1PSIDTS / __Secure-1PSID 변경 감지
   └─ expired(만료), 또는 v1.6.41~v1.6.43 중계가 active인데 is_healthy=false(세션 무효)
         → 모두 쿨다운 중이거나 (계정 ID 미지정 시) 로컬 PSID가 일치하지 않음 → 새로고침 없이 다음 폴링 대기
         → 열린 gemini.google.com 탭 새로고침
-        → chrome.cookies 로 새 __Secure-1PSID / __Secure-1PSIDTS 읽기
+        → chrome.cookies 로 새 전체 Cookie(__Secure-1PSID / __Secure-1PSIDTS / OSID …) 읽기
         → PUT /admin/accounts/{id}/cookies 로 중계에 제출
         → 다음 폴링에서 active 복구 확인
 ```
 
 확장 자체는 Cookie를 로테이션하지 않습니다. 능동 동기화는 브라우저가 이미 바꾼 값을 중계에 넘길 뿐이며, **탭 새로고침은 만료·세션 무효를 감지하고 실제로 제출할 계정이 있을 때 1회만** 하고 쿨다운으로 반복을 방지합니다. 두 경로 모두 `X-Gemini2API-Keepalive: gemini2api-plugin/<버전>` 헤더를 붙여 제출하며, **gemini2api ≥ v1.6.44**는 이를 보고 해당 계정을 「브라우저 유지」로 표시하고 서버 측 로테이션을 멈춥니다(구버전 중계는 헤더를 무시).
 
+**전체 Cookie(v1.4.0)**: Google의 2026-11-20 변경 이후 `__Secure-1PSID` / `__Secure-1PSIDTS`만으로 Gemini를 열면 Google 로그인 페이지로 302됩니다. 중계는 초기화에 성공했다고 여기지만 실제로는 로그인하지 않은 게스트입니다(모델은 「Auto」 하나뿐, 다른 모델은 400). 그래서 두 경로 모두 `chrome.cookies.getAll({ url: "https://gemini.google.com/app" })`로 브라우저가 Gemini에 보내는 **모든** Cookie를 읽습니다. `.google.com` 도메인의 SID / HSID / SSID / APISID / SAPISID / `__Secure-1PAPISID` / `__Secure-3PSID` / `*PSIDCC` 등과 gemini.google.com 자체의 host-only Cookie `OSID` / `__Secure-OSID`를 도메인·경로·만료 시각 등과 함께 `{ psid, psidts }` 외에 `cookies` 필드로 제출합니다(필드 이름은 `chrome.cookies.Cookie`를 따름). gemini2api ≥ v1.6.53은 이를 도메인별로 저장·전송하고, 그보다 오래된 중계는 이 필드를 무시하고 v1.3.0처럼 PSID/PSIDTS만 씁니다.
+
 ## 🌟 핵심 기능
 
+- **전체 Cookie(v1.4.0)**: 브라우저가 Gemini에 보내는 모든 Cookie(gemini.google.com의 `OSID` 포함)를 제출해 Google의 2026-11-20 변경에 대응. 능동 동기화·구조·강제 새로고침 모두 포함하며, Gemini의 OSID가 바뀌어도 능동 동기화가 동작. gemini2api ≥ v1.6.53 필요
 - **능동 동기화(v1.3.0)**: 브라우저가 Cookie를 로테이션하면 약 10초 내 중계에 제출. 값이 바뀐 경우만, 동일 계정은 최소 60초 간격, 주기 폴링으로 보충. 확장 자체는 로테이션·페이지 새로고침을 하지 않음
 - **구조**: 만료되었거나 v1.6.41~v1.6.43 중계가 active인데 `is_healthy=false`(세션 무효)일 때만 탭을 새로고침하고 새 Cookie 제출(쿨다운 중이거나 계정 ID 미지정 상태에서 로컬 PSID가 일치하지 않으면 새로고침하지 않음)
 - **HttpOnly Cookie 읽기**: `chrome.cookies`로 `__Secure-` 인증 Cookie 접근
@@ -98,6 +102,9 @@ chrome.cookies.onChanged 가 __Secure-1PSIDTS / __Secure-1PSID 변경 감지
 5. 확장 아이콘 → 사이드바:
    - 상단에서 **이 브라우저가 담당할 계정 ID** 바인딩 (예: `account-0`)
    - 우측 상단 **중계 설정**에서 URL·API Key 입력
+
+> [!NOTE]
+> **이전 버전에서 업데이트**: `git pull` 후 확장 프로그램 관리 페이지에서 본 확장의 「새로고침」을 누르세요. v1.4.0은 gemini2api ≥ v1.6.53이 필요합니다(중계가 전체 Cookie를 받을 수 있어야 함). 업데이트 후 첫 폴링에서 이 브라우저가 담당하는 계정에 전체 Cookie를 한 번 제출합니다.
 
 ## ⚙ 설정
 
@@ -127,6 +134,7 @@ chrome.cookies.onChanged 가 __Secure-1PSIDTS / __Secure-1PSID 변경 감지
 > - v1.6.41~v1.6.43은 Google 세션이 죽은 계정도 `active`로 보고하고 `is_healthy`만 false로 둡니다. v1.3.0부터 확장은 이를 「세션 무효」로 보고 구조합니다.
 > - **v1.6.44부터** 로그인 페이지로 튕긴 계정은 `expired`로 보고됩니다. `active`인데 `is_healthy`가 false인 것은 중계 자체의 일시적 이상(네트워크 흔들림, 5xx, 시작 직후 등)이라 Cookie를 바꿔도 해결되지 않으므로, 확장은 「비정상」으로 표시하고 새로고침도 제출도 하지 않습니다(신구 중계는 `/admin/status`의 `keepalive_mode` 필드 유무로 구분).
 > - **v1.6.44부터** 확장이 Cookie를 제출한 계정은 「브라우저 유지」(`/admin/status`의 `keepalive_mode`가 `browser`)가 되어 서버 측 로테이션이 멈춥니다. 서버 측 로테이션으로 되돌리려면(예: 시크릿 창 Cookie로 교체) 해당 브라우저에서 본 확장을 먼저 끄고 패널에서 Cookie를 수동 업데이트하세요(안 그러면 다음 동기화 때 다시 브라우저 유지로 바뀜).
+> - **v1.6.53부터** 확장이 보낸 전체 Cookie를 받고(`PUT /admin/accounts/{id}/cookies`와 `POST /admin/reload-cookies`의 `cookies` 필드), Google 로그인 페이지로 튕긴 계정을 인증 실패로 처리합니다. Google의 2026-11-20 변경 이후 그보다 오래된 중계는 PSID/PSIDTS만으로 로그인하지 않은 게스트로 동작합니다(모델은 「Auto」뿐). 중계와 본 확장(≥ v1.4.0)을 함께 업데이트하세요.
 
 > [!IMPORTANT]
 > **브라우저 인스턴스당 계정 1개.** gemini.google.com 탭 상시 유지, **전용 프로필** 사용. 사이드바 상단에서 **계정 ID 바인딩**.
@@ -147,21 +155,21 @@ chrome.cookies.onChanged 가 __Secure-1PSIDTS / __Secure-1PSID 변경 감지
 툴바 아이콘 → **오른쪽 고정 사이드바**.
 
 - 상단 **계정 ID 바인딩**; 상태(활성 / 만료 / 세션 무효 / 비정상)·마스킹된 PSID·동작 로그(능동 동기화 기록 포함)·**지금 확인**·**강제 새로고침 제출**·우측 상단 **중계 설정**
-- 로컬 Cookie 표시 및 중계 계정 일치 여부
+- 로컬 Cookie 표시 및 중계 계정 일치 여부. v1.4.0부터 「전체 Cookie」 행에 읽은 개수와 gemini.google.com `OSID` 포함 여부 표시(개수만, Cookie 값은 표시하지 않음. OSID가 없으면 gemini.google.com을 열고 로그인하라고 안내)
 - 배지: 파랑=활성, 빨강=만료·세션 무효(구조 대상), `!`=연결 실패
 
 ## 🔐 권한
 
 | 권한 | 용도 |
 |------|------|
-| `cookies` + `*://*.google.com/*` | Gemini HttpOnly Cookie 읽기 및 변경 감시(능동 동기화) |
+| `cookies` + `*://*.google.com/*` | 브라우저가 Gemini에 보내는 모든 Cookie(HttpOnly와 gemini.google.com `OSID` 포함) 읽기 및 변경 감시(능동 동기화) |
 | `tabs` | gemini.google.com 탭 검색·새로고침 |
 | `storage` | 설정·로그·동기화 기록(해시 지문만) 저장 |
 | `alarms` | 주기 폴링 |
 | 중계 호스트 권한 | 저장 시 동적 요청 |
 
 > [!NOTE]
-> API Key와 Cookie는 로컬에만 저장되며 설정한 중계로만 전송됩니다. v1.3.0 능동 동기화로 권한이 늘지 않았고, 동기화 기록은 Cookie의 SHA-256 축약 지문만 저장합니다.
+> API Key와 Cookie는 로컬에만 저장되며 설정한 중계로만 전송됩니다. v1.3.0 능동 동기화와 v1.4.0 전체 Cookie 모두 권한이 늘지 않았고, 동기화 기록은 Cookie의 SHA-256 축약 지문만 저장합니다.
 
 ## ❓ FAQ
 
@@ -174,8 +182,11 @@ A: 미로그인 또는 다른 계정 로그인. 다시 로그인하세요.
 **Q: 제출 후에도 만료?**
 A: PSID가 Google에서 폐기됐을 수 있음. 재로그인 필요.
 
+**Q: 중계에 「Auto」 모델만 보임 / 다른 모델은 400 / 전체 Cookie(OSID 포함)가 필요하다고 함?**
+A: Google의 2026-11-20 변경 때문입니다. `__Secure-1PSID` / `__Secure-1PSIDTS`만으로는 Gemini에 로그인할 수 없습니다. 중계를 gemini2api ≥ v1.6.53, 본 확장을 v1.4.0으로 올리고, 이 브라우저에서 gemini.google.com을 열어 로그인한 뒤 사이드바 「전체 Cookie」 행에 OSID 포함으로 나오는지 확인하고 **강제 새로고침 제출**을 한 번 누르세요(누르지 않아도 업데이트 후 첫 폴링에서 전체 Cookie를 자동으로 한 번 제출합니다).
+
 **Q: 만료되지 않았는데 Cookie를 제출하는 이유?**
-A: v1.3.0 능동 동기화입니다. 브라우저와 중계가 같은 Google 세션을 공유하므로 브라우저가 PSIDTS를 로테이션하면 중계의 이전 값은 곧 무효가 됩니다. 그래서 새 값을 전달합니다(값이 바뀐 경우만, 동일 계정 최소 60초 간격, 탭 새로고침 없음). gemini2api ≥ v1.6.44면 중계가 해당 계정 로테이션을 멈춰 서로 밀어내지 않습니다.
+A: v1.3.0 능동 동기화입니다. 브라우저와 중계가 같은 Google 세션을 공유하므로 브라우저가 PSIDTS를 로테이션하면 중계의 이전 값은 곧 무효가 됩니다. 그래서 새 값을 전달합니다(값이 바뀐 경우만, 동일 계정 최소 60초 간격, 탭 새로고침 없음). gemini2api ≥ v1.6.44면 중계가 해당 계정 로테이션을 멈춰 서로 밀어내지 않습니다. v1.4.0부터는 전체 Cookie를 제출하고, gemini.google.com의 OSID가 바뀔 때도 제출합니다(`*PSIDCC`처럼 요청마다 바뀌는 것은 따로 제출하지 않고 다음 제출에 함께 보냄).
 
 **Q: 사이드바의 「세션 무효」·「비정상」이란?**
 A: 둘 다 중계가 `active`로 보고하면서 `is_healthy`는 false인 상태이며, 차이는 중계 버전입니다. 「세션 무효」는 gemini2api v1.6.41~v1.6.43에서만 나타납니다. 이 버전들은 Google 세션이 죽은 계정을 이렇게 보고하므로 확장은 「만료됨」과 똑같이 구조합니다(탭 새로고침 후 새 Cookie 제출. 이 버전들에서는 네트워크 흔들림 등 다른 원인의 이상도 똑같이 처리됨). v1.6.44부터는 로그인 페이지로 튕긴 계정을 `expired`로 보고하므로, `active`인데 이상이 있는 것은 로그인 만료가 아니라 중계 자체의 문제(네트워크 흔들림, 5xx, 시작 직후 등)입니다. 확장은 「비정상」으로 표시하고 탭 새로고침도 제출도 하지 않으니 중계 패널/로그를 확인하세요.

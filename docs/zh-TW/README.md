@@ -41,7 +41,7 @@
 > 本擴充功能與 Google 無關。透過瀏覽器擴充功能讀取 Gemini 登入 Cookie 實現功能，可能不符合 Google 服務條款。使用風險自負，作者不對任何帳號處罰或資料遺失承擔責任。
 
 > [!IMPORTANT]
-> 本擴充功能**不保證 100% 突破 2 小時限制**。本地瀏覽器與中轉站共用同一帳號工作階段：v1.3.0 起擴充功能會把瀏覽器輪換出的新 Cookie 及時同步給中轉站，搭配 **gemini2api ≥ v1.6.44** 時中轉站不再自行輪換這些帳號，避免兩邊互相頂掉（v1.6.41～v1.6.43 的中轉站仍會自行輪換）。實際效果需安裝後觀察。歡迎透過 [Issue](https://github.com/xwteam/gemini2api-plugin/issues) 分享你的實測結果。
+> 本擴充功能**不保證 100% 突破 2 小時限制**。本地瀏覽器與中轉站共用同一帳號工作階段：v1.3.0 起擴充功能會把瀏覽器輪換出的新 Cookie 及時同步給中轉站，搭配 **gemini2api ≥ v1.6.44** 時中轉站不再自行輪換這些帳號，避免兩邊互相頂掉（v1.6.41～v1.6.43 的中轉站仍會自行輪換）。**Google 2026-11-20 改版後，只給中轉站 `__Secure-1PSID` / `__Secure-1PSIDTS` 已經登不進 Gemini**：v1.4.0 起擴充功能推送瀏覽器存取 Gemini 時的完整 Cookie（含 gemini.google.com 自己的 `OSID`），請搭配 **gemini2api ≥ v1.6.53** 使用。實際效果需安裝後觀察。歡迎透過 [Issue](https://github.com/xwteam/gemini2api-plugin/issues) 分享你的實測結果。
 
 ---
 
@@ -52,7 +52,8 @@
 ```
 ① 主動同步（v1.3.0）：瀏覽器自己輪換了 Cookie → 及時轉交中轉站
 chrome.cookies.onChanged 發現 __Secure-1PSIDTS / __Secure-1PSID 變化
-  → 等約 10 秒合併連續變化 → 讀取目前 Cookie（不重新整理分頁）
+  （v1.4.0 起 gemini.google.com 的 OSID / __Secure-OSID 變化也算；*PSIDCC 這類每次請求都變的不算）
+  → 等約 10 秒合併連續變化 → 讀取完整 Cookie（不重新整理分頁）
   → 目標帳號：側邊欄綁定的帳號 ID；沒綁定就依 PSID 比對
   → 與上次成功推送的不同、且距上次推送 ≥ 60 秒 → PUT /admin/accounts/{id}/cookies
   （每次定時輪詢也補查一次，防止 service worker 被回收而漏推）
@@ -62,15 +63,18 @@ chrome.cookies.onChanged 發現 __Secure-1PSIDTS / __Secure-1PSID 變化
   └─ expired（過期），或 v1.6.41～v1.6.43 的中轉站仍回報 active 但 is_healthy=false（工作階段失效）
         → 都在冷卻期、或（未綁定帳號 ID 時）本地 PSID 都對不上 → 不重新整理，等下一輪
         → 重新整理本地已開啟的 gemini.google.com 分頁
-        → chrome.cookies 讀取新的 __Secure-1PSID / __Secure-1PSIDTS
+        → chrome.cookies 讀取新的完整 Cookie（__Secure-1PSID / __Secure-1PSIDTS / OSID……）
         → PUT /admin/accounts/{id}/cookies 提交給中轉站
         → 下一輪輪詢驗證是否恢復 active
 ```
 
 擴充功能自己從不輪換 Cookie：主動同步只是把瀏覽器已經換好的值轉交給中轉站；平時不操作瀏覽器，**只有檢測到過期 / 工作階段失效、且確有帳號要提交時才重新整理一次分頁**，並設冷卻期防止重複重新整理。兩條線提交時都帶請求標頭 `X-Gemini2API-Keepalive: gemini2api-plugin/<版本>`：**gemini2api ≥ v1.6.44** 據此把該帳號標為「瀏覽器保活」、不再由伺服器端輪換，避免瀏覽器與中轉站互相頂掉對方的 PSIDTS；舊版中轉站會忽略這個標頭。
 
+**完整 Cookie（v1.4.0）**：Google 2026-11-20 改版後，只帶 `__Secure-1PSID` / `__Secure-1PSIDTS` 開啟 Gemini 會被 302 到 Google 登入頁——中轉站以為初始化成功，實際是未登入訪客（只剩「Auto」一個模型，其他模型回報 400）。因此兩條線現在都用 `chrome.cookies.getAll({ url: "https://gemini.google.com/app" })` 讀取瀏覽器存取 Gemini 時會送出的**全部** Cookie：`.google.com` 網域的 SID / HSID / SSID / APISID / SAPISID / `__Secure-1PAPISID` / `__Secure-3PSID` / `*PSIDCC` 等，加上 gemini.google.com 自己的 host-only Cookie `OSID` / `__Secure-OSID`，連同各自的網域、路徑、到期時間等，在 `{ psid, psidts }` 之外以 `cookies` 欄位一起提交（欄位名稱沿用 `chrome.cookies.Cookie`）。gemini2api ≥ v1.6.53 依網域儲存、依網域送出這些 Cookie；更舊的中轉站會忽略這個欄位，和 v1.3.0 一樣只用 PSID/PSIDTS。
+
 ## 🌟 核心特性
 
+- **完整 Cookie（v1.4.0）**：推送瀏覽器存取 Gemini 時的全部 Cookie（含 gemini.google.com 的 `OSID`），因應 Google 2026-11-20 改版；主動同步、救火、強制重新整理都會帶上，gemini.google.com 的 OSID 變化也會觸發主動同步；需要 gemini2api ≥ v1.6.53
 - **主動同步（v1.3.0）**：瀏覽器輪換 Cookie 後約 10 秒內推給中轉站；只在值變化時推，同一帳號至少間隔 60 秒，定時輪詢兜底補推；擴充功能本身不輪換 Cookie、不重新整理頁面
 - **救火**：帳號過期，或 v1.6.41～v1.6.43 的中轉站仍回報 active 但 `is_healthy=false`（工作階段失效）時，重新整理分頁並提交新 Cookie；冷卻期內、或未綁定帳號 ID 且本地 PSID 對不上時不重新整理；其餘時間不操作瀏覽器
 - **讀取 HttpOnly Cookie**：借助擴充功能的 `chrome.cookies` 權限讀取網頁 JS 讀不到的 `__Secure-` 認證 Cookie
@@ -98,6 +102,9 @@ chrome.cookies.onChanged 發現 __Secure-1PSIDTS / __Secure-1PSID 變化
 5. 安裝後點擊擴充功能圖示 → 在右側開啟側邊欄：
    - 頂部 **綁定本瀏覽器負責的帳號 ID**（如 `account-0`）
    - 右上角 **中轉站設定** 填寫地址和 API Key（見下文）
+
+> [!NOTE]
+> **從舊版升級**：`git pull` 後在擴充功能管理頁按本擴充功能的「重新載入」。v1.4.0 需要搭配 gemini2api ≥ v1.6.53（中轉站要能接收完整 Cookie）；升級後第一次輪詢會替本瀏覽器負責的帳號補推一次完整 Cookie。
 
 ## ⚙ 配置說明
 
@@ -127,6 +134,7 @@ chrome.cookies.onChanged 發現 __Secure-1PSIDTS / __Secure-1PSID 變化
 > - v1.6.41～v1.6.43 對 Google 工作階段已失效的帳號仍回報 `active`，只把 `is_healthy` 設為 false；擴充功能（v1.3.0 起）按「工作階段失效」去救。
 > - **v1.6.44 起**，被 Google 打回登入頁的帳號直接回報 `expired`；仍回報 `active` 但 `is_healthy` 為 false 只表示中轉站自身暫時不健康（網路抖動、5xx、剛啟動等），換 Cookie 也沒用，擴充功能顯示「不健康」、不重新整理也不提交（擴充功能看 `/admin/status` 有沒有 `keepalive_mode` 欄位來區分新舊版本）。
 > - **v1.6.44 起**，擴充功能推送過 Cookie 的帳號會被標為「瀏覽器保活」（`/admin/status` 裡 `keepalive_mode` 為 `browser`），伺服器端不再輪換它。想讓某個帳號改回伺服器端輪換（例如改用無痕視窗取的 Cookie），先在對應瀏覽器裡停用本擴充功能，再到面板手動更新 Cookie——否則擴充功能下次同步又會把它標回瀏覽器保活。
+> - **v1.6.53 起**接收擴充功能推來的完整 Cookie（`PUT /admin/accounts/{id}/cookies` 與 `POST /admin/reload-cookies` 的 `cookies` 欄位），並把被打回 Google 登入頁的帳號判為認證失敗。Google 2026-11-20 改版後，更舊的中轉站只拿 PSID/PSIDTS 會以未登入訪客身分運作（只剩「Auto」模型），請同時升級中轉站與本擴充功能（≥ v1.4.0）。
 
 > [!IMPORTANT]
 > **一個瀏覽器實例只能保活一個帳號。** 瀏覽器對 `gemini.google.com` 只有一份 Cookie，擴充功能讀到的永遠是當前登入的那個帳號。所以：
@@ -155,7 +163,7 @@ chrome.cookies.onChanged 發現 __Secure-1PSIDTS / __Secure-1PSID 變化
 點擊工具列圖示會在瀏覽器**右側開啟固定側邊欄**（常駐不消失，方便長時間盯著保活狀態和日誌）。
 
 - **側邊欄面板**：頂部綁定本瀏覽器負責的**帳號 ID**；下方顯示帳號活動 / 過期 / 工作階段失效 / 不健康狀態、PSID 打碼預覽、最近動作日誌（含主動同步記錄）；`立即檢查` / `強制重新整理提交`；右上角 **中轉站設定** 進入連線配置頁。
-- **本地 Cookie 區**：顯示本地瀏覽器當前讀到的 `__Secure-1PSID` / `__Secure-1PSIDTS`（預設打碼，可點 `👁 顯示完整` 看全值），並提示是否與中轉站帳號匹配——方便排查「到底有沒有讀到 Cookie、是不是對的帳號」。
+- **本地 Cookie 區**：顯示本地瀏覽器當前讀到的 `__Secure-1PSID` / `__Secure-1PSIDTS`（預設打碼，可點 `👁 顯示完整` 看全值），並提示是否與中轉站帳號匹配——方便排查「到底有沒有讀到 Cookie、是不是對的帳號」。v1.4.0 起多一行「完整 Cookie」：顯示讀到幾個、含不含 gemini.google.com 的 `OSID`（只顯示個數，任何 Cookie 值都不顯示；缺 OSID 時提示去開啟並登入 gemini.google.com）。
 - **圖示角標**：
   - 藍色數字 = 活動帳號數
   - 紅色數字 = 過期或工作階段失效（待救）的帳號數
@@ -165,14 +173,14 @@ chrome.cookies.onChanged 發現 __Secure-1PSIDTS / __Secure-1PSID 變化
 
 | 權限 | 用途 |
 |------|------|
-| `cookies` + `*://*.google.com/*` | 讀取 Gemini 的 HttpOnly 認證 Cookie，並監聽其變化以主動同步 |
+| `cookies` + `*://*.google.com/*` | 讀取瀏覽器存取 Gemini 時的全部 Cookie（含 HttpOnly 與 gemini.google.com 的 `OSID`），並監聽其變化以主動同步 |
 | `tabs` | 查找並重新整理 gemini.google.com 分頁 |
 | `storage` | 儲存配置、動作日誌與同步記錄（只存雜湊指紋） |
 | `alarms` | 定時輪詢 |
 | 中轉站網域權限 | 儲存設定時按你填寫的地址動態申請 |
 
 > [!NOTE]
-> **隱私承諾**：API Key 和讀取到的 Cookie 僅儲存在本地瀏覽器，且只發送給你配置的中轉站地址，絕不發往任何第三方。v1.3.0 的主動同步沒有新增任何權限，同步記錄只保存 Cookie 的 SHA-256 截斷指紋，不另存 Cookie 原值。
+> **隱私承諾**：API Key 和讀取到的 Cookie 僅儲存在本地瀏覽器，且只發送給你配置的中轉站地址，絕不發往任何第三方。v1.3.0 的主動同步、v1.4.0 的完整 Cookie 都沒有新增任何權限，同步記錄只保存 Cookie 的 SHA-256 截斷指紋，不另存 Cookie 原值。
 
 ## ❓ 常見問題
 
@@ -185,8 +193,11 @@ A：說明本地瀏覽器當前也未登入 Gemini，或登入的不是中轉站
 **Q：狀態一直顯示過期、提交後不恢復？**
 A：可能是 Google 已吊銷該帳號的主工作階段（PSID 被吊銷無法靠重新整理恢復）。此時需要重新登入 Gemini 獲取全新 Cookie。
 
+**Q：中轉站只剩「Auto」一個模型 / 其他模型回報 400 / 提示需要完整 Cookie（含 OSID）？**
+A：這是 Google 2026-11-20 改版造成的：只有 `__Secure-1PSID` / `__Secure-1PSIDTS` 已經登不進 Gemini。把中轉站升級到 gemini2api ≥ v1.6.53、本擴充功能升級到 v1.4.0，在本瀏覽器開啟並登入 gemini.google.com，確認側邊欄「完整 Cookie」一行顯示含 OSID，再按一次「強制重新整理提交」（不按也行，升級後的第一次輪詢會自動補推一次完整 Cookie）。
+
 **Q：帳號沒過期，擴充功能為什麼也在提交 Cookie？**
-A：這是 v1.3.0 的主動同步。瀏覽器與中轉站共用同一個 Google 工作階段，瀏覽器輪換出新的 PSIDTS 後，中轉站手裡的舊值很快會失效，所以擴充功能把新值及時轉交過去（只在值變化時推，同一帳號至少間隔 60 秒，不重新整理分頁）。搭配 gemini2api ≥ v1.6.44，中轉站會停止自行輪換這個帳號，避免兩邊互相頂掉。
+A：這是 v1.3.0 的主動同步。瀏覽器與中轉站共用同一個 Google 工作階段，瀏覽器輪換出新的 PSIDTS 後，中轉站手裡的舊值很快會失效，所以擴充功能把新值及時轉交過去（只在值變化時推，同一帳號至少間隔 60 秒，不重新整理分頁）。搭配 gemini2api ≥ v1.6.44，中轉站會停止自行輪換這個帳號，避免兩邊互相頂掉。v1.4.0 起推的是完整 Cookie，gemini.google.com 的 OSID 變化也會推（`*PSIDCC` 這類每次請求都變的不單獨推，隨下一次推送一起帶過去）。
 
 **Q：側邊欄顯示「工作階段失效」或「不健康」是什麼意思？**
 A：兩者都是中轉站仍回報 `active` 但 `is_healthy` 為 false，差別在中轉站版本。「工作階段失效」只出現在 gemini2api v1.6.41～v1.6.43：這幾版對 Google 工作階段已失效的帳號就是這樣回報的，擴充功能把它和「已過期」一樣處理——重新整理分頁並提交新 Cookie（這幾版裡網路抖動等原因造成的不健康也會被當成工作階段失效）。v1.6.44 起被打回登入頁的帳號直接回報 `expired`，仍回報 `active` 但不健康只說明中轉站自身有問題（網路抖動、5xx、剛啟動等），並非登入失效：擴充功能顯示「不健康」，不重新整理分頁也不提交，請到中轉站面板 / 日誌排查。
