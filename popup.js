@@ -1,8 +1,8 @@
 // popup.js —— 状态面板：展示账号状态、本地 Cookie、动作日志，手动触发检查/刷新
 import { getConfig, fetchStatus } from "./api.js";
-import { readGeminiCookies, isSameAccount, maskCookie, COOKIE_PSID, COOKIE_PSIDTS } from "./cookies.js";
+import { readGeminiSession, isSameAccount, maskCookie, hasGeminiOsid } from "./cookies.js";
 import { t, localizePage, accountStatusText, escapeHtml } from "./i18n.js";
-import { displayStatus } from "./sync.js";
+import { displayStatus, isSyncTriggerCookie } from "./sync.js";
 
 const $ = (id) => document.getElementById(id);
 let showFullCookie = false;
@@ -56,7 +56,7 @@ async function renderLog() {
 
 async function renderCookie() {
   const box = $("cookieBody");
-  const { psid, psidts } = await readGeminiCookies();
+  const { psid, psidts, cookies } = await readGeminiSession();
   const empty = t("cookieEmpty");
 
   const fmt = (v) => v ? escapeHtml(showFullCookie ? v : maskCookie(v, empty)) : null;
@@ -66,6 +66,7 @@ async function renderCookie() {
   };
 
   let html = row("__Secure-1PSID", psid) + row("__Secure-1PSIDTS", psidts);
+  if (psid) html += cookieSetRow(cookies);
 
   if (!psid) {
     html += `<div class="ck-match ck-miss">${escapeHtml(t("notLoggedInGemini"))}</div>`;
@@ -95,6 +96,22 @@ async function renderCookie() {
     }
   }
   box.innerHTML = html;
+}
+
+/**
+ * 「完整 Cookie」一行（v1.4.0 推给中转站的那一整套）：只显示个数、含不含 gemini.google.com 的 OSID，
+ * 不显示任何值（「显示完整」开关只管上面的 PSID/PSIDTS 两行）。没有 OSID 时提示去打开 Gemini。
+ */
+function cookieSetRow(cookies) {
+  const label = `<span class="ck-name">${escapeHtml(t("cookieSetLabel"))}</span>`;
+  if (!cookies || !cookies.length) {
+    return `<div class="ck-row">${label}<span class="ck-val ck-miss">${escapeHtml(t("cookieNotRead"))}</span></div>`;
+  }
+  const osid = hasGeminiOsid(cookies);
+  const text = t(osid ? "cookieSetRead" : "cookieSetReadNoOsid", String(cookies.length));
+  let html = `<div class="ck-row">${label}<span class="ck-val ${osid ? "ck-ok" : "ck-warn"}">${escapeHtml(text)}</span></div>`;
+  if (!osid) html += `<div class="ck-match ck-warn">${escapeHtml(t("cookieSetNoOsidHint"))}</div>`;
+  return html;
 }
 
 async function loadAccountId() {
@@ -177,10 +194,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") refreshAll();
 });
 
+// 与主动同步同一口径（PSID/PSIDTS + gemini.google.com 的 OSID）；*PSIDCC 每次请求都变，不跟着重读
 chrome.cookies.onChanged.addListener((info) => {
-  const n = info.cookie?.name;
-  const d = info.cookie?.domain || "";
-  if ((n === COOKIE_PSID || n === COOKIE_PSIDTS) && d.includes("google.com")) {
-    renderCookie();
-  }
+  if (isSyncTriggerCookie(info.cookie)) renderCookie();
 });

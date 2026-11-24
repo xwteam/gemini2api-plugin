@@ -1,4 +1,4 @@
-// _locales 守卫：五语言键集合一致、占位一致、代码 / 页面引用的键都存在、v1.3.0 新文案齐全
+// _locales 守卫：五语言键集合一致、占位一致、代码 / 页面引用的键都存在、v1.3.0 / v1.4.0 新文案齐全
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
@@ -24,6 +24,17 @@ export const V130_KEYS = [
   "logSyncStatusFail",
   "syncTriggerCookie",
   "syncTriggerPoll",
+];
+
+// v1.4.0 完整 Cookie：日志里的「同步了 N 个 Cookie、含不含 OSID」+ 侧边栏「完整 Cookie」一行
+export const V140_KEYS = [
+  "syncSetOsid",
+  "syncSetNoOsid",
+  "syncSetPsidOnly",
+  "cookieSetLabel",
+  "cookieSetRead",
+  "cookieSetReadNoOsid",
+  "cookieSetNoOsidHint",
 ];
 
 test("_locales 恰好是这五种语言", () => {
@@ -85,4 +96,29 @@ test("v1.3.0 新文案五语言齐全", () => {
 test("v1.3.0 新文案都被代码用到（不留死键）", () => {
   const src = readdirSync(root).filter((n) => n.endsWith(".js")).map((f) => read(f)).join("\n");
   for (const key of V130_KEYS) assert.ok(src.includes(`"${key}"`), key);
+});
+
+test("v1.4.0 新文案五语言齐全、都被代码用到", () => {
+  const src = readdirSync(root).filter((n) => n.endsWith(".js")).map((f) => read(f)).join("\n");
+  for (const loc of LOCALES) {
+    const d = load(loc);
+    for (const key of V140_KEYS) assert.ok(d[key] && d[key].message, `${loc}.${key}`);
+  }
+  for (const key of V140_KEYS) assert.ok(src.includes(`"${key}"`), key);
+});
+
+test("v1.4.0：日志的 Cookie 小结作为占位传入（logSyncPushed 四个、logCookieSubmitted 三个），五语言一致", () => {
+  for (const loc of LOCALES) {
+    const d = load(loc);
+    assert.deepEqual(subTokens(d.logSyncPushed.message), ["$1", "$2", "$3", "$4"], `${loc}.logSyncPushed`);
+    assert.deepEqual(subTokens(d.logCookieSubmitted.message), ["$1", "$2", "$3"], `${loc}.logCookieSubmitted`);
+    for (const key of ["syncSetOsid", "syncSetNoOsid", "cookieSetRead", "cookieSetReadNoOsid"]) {
+      assert.deepEqual(subTokens(d[key].message), ["$1"], `${loc}.${key}`);
+      assert.ok(d[key].message.includes("OSID"), `${loc}.${key} 要写明 OSID`);
+    }
+    // 会作为 t() 的占位再转义一次：不能含 HTML 特殊字符，否则日志里显示成 &amp; 之类
+    for (const key of ["syncSetOsid", "syncSetNoOsid", "syncSetPsidOnly"]) {
+      assert.ok(!/[&<>"']/.test(d[key].message), `${loc}.${key} 含 HTML 特殊字符`);
+    }
+  }
 });
